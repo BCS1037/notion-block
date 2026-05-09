@@ -50,7 +50,11 @@ class BlockHandleWidget extends WidgetType {
         dragButton.onmouseup = (e) => {
             clearTimeout(dragTimeout);
             if (!isDragging) {
-                showTransformMenu(this.plugin.app, view, this.lineNo, e);
+                const rect = dragButton.getBoundingClientRect();
+                showTransformMenu(this.plugin, view, this.lineNo, {
+                    x: rect.left,
+                    y: rect.bottom
+                });
             }
         };
 
@@ -73,7 +77,23 @@ class BlockHandleWidget extends WidgetType {
         };
 
         addButton.onclick = (e) => {
-            showInsertMenu(this.plugin, view, this.lineNo);
+            e.stopPropagation();
+            
+            // Get position BEFORE dispatch, as the handle might move or be re-rendered
+            const rect = addButton.getBoundingClientRect();
+            const pos = { x: rect.left, y: rect.bottom };
+
+            const line = view.state.doc.line(this.lineNo);
+            
+            // Insert newline after current line and move cursor
+            view.dispatch({
+                changes: { from: line.to, insert: "\n" },
+                selection: { anchor: line.to + 1 },
+                scrollIntoView: true
+            });
+            
+            // Show menu for the new line at the captured position
+            showInsertMenu(this.plugin, view, this.lineNo + 1, pos);
         };
         
         return wrap;

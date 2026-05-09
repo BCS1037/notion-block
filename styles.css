@@ -18,7 +18,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 4px;
-    color: var(--text-muted);
+    color: #aea9a3;
     cursor: pointer;
     transition: background-color 0.1s ease, color 0.1s ease, transform 0.1s ease;
 }
@@ -75,3 +75,31 @@
     -webkit-user-select: none !important;
 }
 
+/* 原生菜单样式微调 - 极致精致 */
+.menu-item {
+    display: flex !important;
+    align-items: center !important;
+    padding: 4px 10px !important;
+    min-height: 26px !important;
+}
+
+.menu-item-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 18px !important; /* 进一步缩小容器 */
+    height: 18px !important;
+    margin-right: 10px !important;
+    opacity: 0.8 !important;
+    visibility: visible !important;
+}
+
+.menu-item-icon svg {
+    width: 13px !important; /* 精致小图标 */
+    height: 13px !important;
+    display: block !important;
+}
+
+.menu-item-title {
+    font-size: 13px !important;
+}

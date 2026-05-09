@@ -88,7 +88,7 @@ export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: numbe
             case "math": insertText = "$$\n\n$$"; cursorOffset = 3; break;
             case "divider": insertText = "---\n"; break;
             
-            // Step 7: Advanced types
+            // Advanced types
             case "link": insertText = "[[]]"; cursorOffset = 2; break;
             case "ext-link": insertText = "[]()"; cursorOffset = 1; break;
             case "embed": insertText = "![[]]"; cursorOffset = 3; break;
@@ -130,12 +130,15 @@ export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: numbe
     const pos = customPos !== null ? customPos : line.to;
     const isNewLine = !isMetadata && !["link", "ext-link", "embed", "tag", "comment", "today", "yesterday", "tomorrow", "time"].includes(targetType);
 
+    // Only insert newline if current line is not empty
+    const needsNewLine = isNewLine && line.text.trim().length > 0;
+
     view.dispatch({
         changes: {
             from: pos,
-            insert: (isNewLine && pos !== 0 ? "\n" : "") + insertText
+            insert: (needsNewLine ? "\n" : "") + insertText
         },
-        selection: { anchor: (customPos !== null ? 0 : pos) + (isNewLine && pos !== 0 ? 1 : 0) + (cursorOffset || insertText.length) },
+        selection: { anchor: (customPos !== null ? 0 : pos) + (needsNewLine ? 1 : 0) + (cursorOffset || insertText.length) },
         scrollIntoView: true,
         userEvent: "insert.block"
     });

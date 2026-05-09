@@ -1,0 +1,35 @@
+.block-handle-wrap {
+    position: absolute;
+    left: -52px; /* Adjusted to center the 2 buttons (18+18+spacing) around -48px */
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 1.5em; /* Match line height roughly */
+    z-index: 10;
+    pointer-events: all;
+    background-color: transparent;
+    transition: opacity 0.2s ease;
+}
+
+.block-handle-button {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: #aea9a3;
+    cursor: pointer;
+    transition: background-color 0.1s ease, color 0.1s ease, transform 0.1s ease;
+}
+
+.block-handle-button:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    transform: scale(1.1);
+}
+
+.block-handle-button svg {
+    width: 14px;
+    height: 14px;
+}

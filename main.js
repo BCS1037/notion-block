@@ -252,69 +252,20 @@ function insertBlock(plugin, view, lineNo, targetType) {
   }
   const pos = customPos !== null ? customPos : line.to;
   const isNewLine = !isMetadata && !["link", "ext-link", "embed", "tag", "comment", "today", "yesterday", "tomorrow", "time"].includes(targetType);
+  const needsNewLine = isNewLine && line.text.trim().length > 0;
   view.dispatch({
     changes: {
       from: pos,
-      insert: (isNewLine && pos !== 0 ? "\n" : "") + insertText
+      insert: (needsNewLine ? "\n" : "") + insertText
     },
-    selection: { anchor: (customPos !== null ? 0 : pos) + (isNewLine && pos !== 0 ? 1 : 0) + (cursorOffset || insertText.length) },
+    selection: { anchor: (customPos !== null ? 0 : pos) + (needsNewLine ? 1 : 0) + (cursorOffset || insertText.length) },
     scrollIntoView: true,
     userEvent: "insert.block"
   });
 }
 
 // src/blockMenu.ts
-function showTransformMenu(app, view, lineNo, event) {
-  const menu = new import_obsidian3.Menu();
-  menu.addItem(
-    (item) => item.setTitle("Text").setIcon("pilcrow").onClick(() => transformLine(view, lineNo, "paragraph"))
-  );
-  menu.addSeparator();
-  menu.addItem(
-    (item) => item.setTitle("Heading 1").setIcon("heading-1").onClick(() => transformLine(view, lineNo, "h1"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Heading 2").setIcon("heading-2").onClick(() => transformLine(view, lineNo, "h2"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Heading 3").setIcon("heading-3").onClick(() => transformLine(view, lineNo, "h3"))
-  );
-  menu.addSeparator();
-  menu.addItem(
-    (item) => item.setTitle("Bullet list").setIcon("list").onClick(() => transformLine(view, lineNo, "bullet"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Numbered list").setIcon("list-ordered").onClick(() => transformLine(view, lineNo, "numbered"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Todo list").setIcon("check-square").onClick(() => transformLine(view, lineNo, "todo"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Quote").setIcon("quote").onClick(() => transformLine(view, lineNo, "blockquote"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Code block").setIcon("code").onClick(() => transformLine(view, lineNo, "code"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Math block").setIcon("sigma").onClick(() => transformLine(view, lineNo, "math"))
-  );
-  menu.addItem(
-    (item) => item.setTitle("Divider").setIcon("minus").onClick(() => transformLine(view, lineNo, "divider"))
-  );
-  menu.addSeparator();
-  menu.addItem((item) => {
-    const sub = item.setSubmenu();
-    item.setTitle("Callout").setIcon("megaphone");
-    const calloutTypes = ["note", "info", "todo", "tip", "success", "question", "warning", "failure", "danger", "bug", "example", "quote"];
-    calloutTypes.forEach((type) => {
-      sub.addItem((subItem) => {
-        subItem.setTitle(type.charAt(0).toUpperCase() + type.slice(1)).onClick(() => transformLine(view, lineNo, `callout-${type}`));
-      });
-    });
-  });
-  menu.showAtMouseEvent(event);
-}
-var ALL_BLOCKS = [
+var BASIC_BLOCKS = [
   { type: "paragraph", label: "Text", icon: "pilcrow" },
   { type: "h1", label: "Heading 1", icon: "heading-1" },
   { type: "h2", label: "Heading 2", icon: "heading-2" },
@@ -325,11 +276,9 @@ var ALL_BLOCKS = [
   { type: "blockquote", label: "Quote", icon: "quote" },
   { type: "code", label: "Code block", icon: "code" },
   { type: "math", label: "Math block", icon: "sigma" },
-  { type: "divider", label: "Divider", icon: "minus" },
-  { type: "callout-note", label: "Callout: Note", icon: "megaphone" },
-  { type: "callout-info", label: "Callout: Info", icon: "info" },
-  { type: "callout-tip", label: "Callout: Tip", icon: "sparkles" },
-  { type: "callout-warning", label: "Callout: Warning", icon: "alert-triangle" },
+  { type: "divider", label: "Divider", icon: "minus" }
+];
+var ADVANCED_BLOCKS = [
   { type: "link", label: "Internal link", icon: "link" },
   { type: "ext-link", label: "External link", icon: "link-2" },
   { type: "embed", label: "Embed / Attachment", icon: "image" },
@@ -341,33 +290,76 @@ var ALL_BLOCKS = [
   { type: "table", label: "Table", icon: "table" },
   { type: "frontmatter", label: "Frontmatter / Properties", icon: "settings" }
 ];
-var BlockInsertModal = class extends import_obsidian3.FuzzySuggestModal {
-  constructor(plugin, view, lineNo) {
-    super(plugin.app);
-    this.plugin = plugin;
-    this.view = view;
-    this.lineNo = lineNo;
-    this.setPlaceholder("Type a block type...");
-  }
-  getItems() {
-    return ALL_BLOCKS;
-  }
-  getItemText(item) {
-    return item.label;
-  }
-  onChooseItem(item, evt) {
-    insertBlock(this.plugin, this.view, this.lineNo, item.type);
-  }
-  renderSuggestion(match, el) {
-    el.createDiv({ cls: "block-suggest-item" }, (div) => {
-      div.createSpan({ cls: "block-suggest-icon" }).innerText = "\u2022";
-      div.createSpan({ cls: "block-suggest-label" }).innerText = match.item.label;
-    });
-  }
+var CALLOUT_TYPES = ["note", "info", "todo", "tip", "success", "question", "warning", "failure", "danger", "bug", "example", "quote"];
+var CALLOUT_ICONS = {
+  note: "pencil",
+  info: "info",
+  todo: "check-square",
+  tip: "sparkles",
+  success: "check",
+  question: "help-circle",
+  warning: "alert-triangle",
+  failure: "x-circle",
+  danger: "zap",
+  bug: "bug",
+  example: "list",
+  quote: "quote"
 };
-function showInsertMenu(plugin, view, lineNo) {
-  const modal = new BlockInsertModal(plugin, view, lineNo);
-  modal.open();
+function addCalloutSubmenu(menu, view, lineNo, mode, plugin) {
+  menu.addItem((item) => {
+    const sub = item.setSubmenu();
+    item.setTitle("Callout").setIcon("megaphone");
+    CALLOUT_TYPES.forEach((type) => {
+      sub.addItem((subItem) => {
+        subItem.setTitle(type.charAt(0).toUpperCase() + type.slice(1)).setIcon(CALLOUT_ICONS[type] || "megaphone").onClick(() => {
+          if (mode === "transform") {
+            transformLine(view, lineNo, `callout-${type}`);
+          } else if (plugin) {
+            insertBlock(plugin, view, lineNo, `callout-${type}`);
+          }
+        });
+      });
+    });
+  });
+}
+function showTransformMenu(plugin, view, lineNo, pos) {
+  const menu = new import_obsidian3.Menu();
+  BASIC_BLOCKS.forEach((block, index) => {
+    if (index === 1 || index === 4)
+      menu.addSeparator();
+    menu.addItem((item) => {
+      item.setTitle(block.label).setIcon(block.icon).onClick(() => transformLine(view, lineNo, block.type));
+    });
+  });
+  menu.addSeparator();
+  addCalloutSubmenu(menu, view, lineNo, "transform");
+  menu.addItem((item) => {
+    item.setTitle("Comment").setIcon("message-square").onClick(() => transformLine(view, lineNo, "comment"));
+  });
+  if (pos instanceof MouseEvent) {
+    menu.showAtMouseEvent(pos);
+  } else {
+    menu.showAtPosition(pos);
+  }
+}
+function showInsertMenu(plugin, view, lineNo, pos) {
+  const menu = new import_obsidian3.Menu();
+  BASIC_BLOCKS.forEach((block, index) => {
+    if (index === 1 || index === 4)
+      menu.addSeparator();
+    menu.addItem((item) => {
+      item.setTitle(block.label).setIcon(block.icon).onClick(() => insertBlock(plugin, view, lineNo, block.type));
+    });
+  });
+  menu.addSeparator();
+  addCalloutSubmenu(menu, view, lineNo, "insert", plugin);
+  menu.addSeparator();
+  ADVANCED_BLOCKS.forEach((block) => {
+    menu.addItem((item) => {
+      item.setTitle(block.label).setIcon(block.icon).onClick(() => insertBlock(plugin, view, lineNo, block.type));
+    });
+  });
+  menu.showAtPosition(pos);
 }
 
 // src/dragDrop.ts
@@ -566,7 +558,11 @@ var BlockHandleWidget = class extends import_view.WidgetType {
     dragButton.onmouseup = (e) => {
       clearTimeout(dragTimeout);
       if (!isDragging) {
-        showTransformMenu(this.plugin.app, view, this.lineNo, e);
+        const rect = dragButton.getBoundingClientRect();
+        showTransformMenu(this.plugin, view, this.lineNo, {
+          x: rect.left,
+          y: rect.bottom
+        });
       }
     };
     dragButton.onclick = (e) => {
@@ -584,7 +580,16 @@ var BlockHandleWidget = class extends import_view.WidgetType {
       e.preventDefault();
     };
     addButton.onclick = (e) => {
-      showInsertMenu(this.plugin, view, this.lineNo);
+      e.stopPropagation();
+      const rect = addButton.getBoundingClientRect();
+      const pos = { x: rect.left, y: rect.bottom };
+      const line = view.state.doc.line(this.lineNo);
+      view.dispatch({
+        changes: { from: line.to, insert: "\n" },
+        selection: { anchor: line.to + 1 },
+        scrollIntoView: true
+      });
+      showInsertMenu(this.plugin, view, this.lineNo + 1, pos);
     };
     return wrap;
   }

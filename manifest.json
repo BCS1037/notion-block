@@ -1,7 +1,6 @@
 {
 	"id": "notion-block",
 	"name": "Notion block",
-	"version": "1.0.2",
 	"minAppVersion": "1.4.0",
 	"description": "Notion-like block interactions for Live Preview.",
 	"author": "BCS",

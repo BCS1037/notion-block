@@ -1,119 +1,12 @@
-import { Menu, App, FuzzySuggestModal, FuzzyMatch } from "obsidian";
+import { Menu, App, MenuItem } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { transformLine, insertBlock } from "./blockTransform";
 import NotionBlock from "./main";
 
-export function showTransformMenu(app: App, view: EditorView, lineNo: number, event: MouseEvent) {
-    const menu = new Menu();
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Text")
-            .setIcon("pilcrow")
-            .onClick(() => transformLine(view, lineNo, "paragraph"))
-    );
-
-    menu.addSeparator();
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Heading 1")
-            .setIcon("heading-1")
-            .onClick(() => transformLine(view, lineNo, "h1"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Heading 2")
-            .setIcon("heading-2")
-            .onClick(() => transformLine(view, lineNo, "h2"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Heading 3")
-            .setIcon("heading-3")
-            .onClick(() => transformLine(view, lineNo, "h3"))
-    );
-
-    menu.addSeparator();
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Bullet list")
-            .setIcon("list")
-            .onClick(() => transformLine(view, lineNo, "bullet"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Numbered list")
-            .setIcon("list-ordered")
-            .onClick(() => transformLine(view, lineNo, "numbered"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Todo list")
-            .setIcon("check-square")
-            .onClick(() => transformLine(view, lineNo, "todo"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Quote")
-            .setIcon("quote")
-            .onClick(() => transformLine(view, lineNo, "blockquote"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Code block")
-            .setIcon("code")
-            .onClick(() => transformLine(view, lineNo, "code"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Math block")
-            .setIcon("sigma")
-            .onClick(() => transformLine(view, lineNo, "math"))
-    );
-
-    menu.addItem((item) =>
-        item
-            .setTitle("Divider")
-            .setIcon("minus")
-            .onClick(() => transformLine(view, lineNo, "divider"))
-    );
-
-    menu.addSeparator();
-
-    // Callout Submenu
-    menu.addItem((item) => {
-        const sub = (item as unknown as { setSubmenu: () => Menu }).setSubmenu();
-        item.setTitle("Callout").setIcon("megaphone");
-        
-        const calloutTypes = ["note", "info", "todo", "tip", "success", "question", "warning", "failure", "danger", "bug", "example", "quote"];
-        
-        calloutTypes.forEach(type => {
-            sub.addItem((subItem: MenuItem) => {
-                subItem.setTitle(type.charAt(0).toUpperCase() + type.slice(1))
-                       .onClick(() => transformLine(view, lineNo, `callout-${type}`));
-            });
-        });
-    });
-
-    menu.showAtMouseEvent(event);
-}
-
-interface BlockItem {
-    type: string;
-    label: string;
-    icon: string;
-}
-
-const ALL_BLOCKS: BlockItem[] = [
+/**
+ * Shared data for block types
+ */
+const BASIC_BLOCKS = [
     { type: "paragraph", label: "Text", icon: "pilcrow" },
     { type: "h1", label: "Heading 1", icon: "heading-1" },
     { type: "h2", label: "Heading 2", icon: "heading-2" },
@@ -125,10 +18,9 @@ const ALL_BLOCKS: BlockItem[] = [
     { type: "code", label: "Code block", icon: "code" },
     { type: "math", label: "Math block", icon: "sigma" },
     { type: "divider", label: "Divider", icon: "minus" },
-    { type: "callout-note", label: "Callout: Note", icon: "megaphone" },
-    { type: "callout-info", label: "Callout: Info", icon: "info" },
-    { type: "callout-tip", label: "Callout: Tip", icon: "sparkles" },
-    { type: "callout-warning", label: "Callout: Warning", icon: "alert-triangle" },
+];
+
+const ADVANCED_BLOCKS = [
     { type: "link", label: "Internal link", icon: "link" },
     { type: "ext-link", label: "External link", icon: "link-2" },
     { type: "embed", label: "Embed / Attachment", icon: "image" },
@@ -141,34 +33,101 @@ const ALL_BLOCKS: BlockItem[] = [
     { type: "frontmatter", label: "Frontmatter / Properties", icon: "settings" },
 ];
 
-class BlockInsertModal extends FuzzySuggestModal<BlockItem> {
-    constructor(private plugin: NotionBlock, private view: EditorView, private lineNo: number) {
-        super(plugin.app);
-        this.setPlaceholder("Type a block type...");
-    }
+const CALLOUT_TYPES = ["note", "info", "todo", "tip", "success", "question", "warning", "failure", "danger", "bug", "example", "quote"];
+const CALLOUT_ICONS: Record<string, string> = {
+    note: "pencil", info: "info", todo: "check-square", tip: "sparkles", 
+    success: "check", question: "help-circle", warning: "alert-triangle", 
+    failure: "x-circle", danger: "zap", bug: "bug", example: "list", quote: "quote"
+};
 
-    getItems(): BlockItem[] {
-        return ALL_BLOCKS;
-    }
-
-    getItemText(item: BlockItem): string {
-        return item.label;
-    }
-
-    onChooseItem(item: BlockItem, evt: MouseEvent | KeyboardEvent): void {
-        insertBlock(this.plugin, this.view, this.lineNo, item.type);
-    }
-
-    renderSuggestion(match: FuzzyMatch<BlockItem>, el: HTMLElement): void {
-        el.createDiv({ cls: "block-suggest-item" }, (div) => {
-            // In a real scenario, we'd use Obsidian's setIcon, but this is a simple mockup
-            div.createSpan({ cls: "block-suggest-icon" }).innerText = "•"; 
-            div.createSpan({ cls: "block-suggest-label" }).innerText = match.item.label;
+/**
+ * Helper to add Callout Submenu
+ */
+function addCalloutSubmenu(menu: Menu, view: EditorView, lineNo: number, mode: "transform" | "insert", plugin?: NotionBlock) {
+    menu.addItem((item) => {
+        const sub = (item as any).setSubmenu();
+        item.setTitle("Callout").setIcon("megaphone");
+        
+        CALLOUT_TYPES.forEach(type => {
+            sub.addItem((subItem: MenuItem) => {
+                subItem.setTitle(type.charAt(0).toUpperCase() + type.slice(1))
+                       .setIcon(CALLOUT_ICONS[type] || "megaphone")
+                       .onClick(() => {
+                           if (mode === "transform") {
+                               transformLine(view, lineNo, `callout-${type}`);
+                           } else if (plugin) {
+                               insertBlock(plugin, view, lineNo, `callout-${type}`);
+                           }
+                       });
+            });
         });
+    });
+}
+
+/**
+ * Transform Menu (⠿ handle)
+ * Focuses on converting the current block's type
+ */
+export function showTransformMenu(plugin: NotionBlock, view: EditorView, lineNo: number, pos: { x: number, y: number } | MouseEvent) {
+    const menu = new Menu();
+
+    BASIC_BLOCKS.forEach((block, index) => {
+        if (index === 1 || index === 4) menu.addSeparator();
+
+        menu.addItem((item) => {
+            item.setTitle(block.label)
+                .setIcon(block.icon)
+                .onClick(() => transformLine(view, lineNo, block.type));
+        });
+    });
+
+    menu.addSeparator();
+    addCalloutSubmenu(menu, view, lineNo, "transform");
+
+    // Also include 'Comment' as a transformation (wrapping the line)
+    menu.addItem((item) => {
+        item.setTitle("Comment")
+            .setIcon("message-square")
+            .onClick(() => transformLine(view, lineNo, "comment"));
+    });
+
+    if (pos instanceof MouseEvent) {
+        menu.showAtMouseEvent(pos);
+    } else {
+        menu.showAtPosition(pos);
     }
 }
 
-export function showInsertMenu(plugin: NotionBlock, view: EditorView, lineNo: number) {
-    const modal = new BlockInsertModal(plugin, view, lineNo);
-    modal.open();
+/**
+ * Insert Menu (+ button)
+ * Focuses on adding new blocks below the current one
+ */
+export function showInsertMenu(plugin: NotionBlock, view: EditorView, lineNo: number, pos: { x: number, y: number }) {
+    const menu = new Menu();
+
+    // Group 1: Basic Text
+    BASIC_BLOCKS.forEach((block, index) => {
+        if (index === 1 || index === 4) menu.addSeparator();
+        menu.addItem((item) => {
+            item.setTitle(block.label)
+                .setIcon(block.icon)
+                .onClick(() => insertBlock(plugin, view, lineNo, block.type));
+        });
+    });
+
+    // Group 2: Callout
+    menu.addSeparator();
+    addCalloutSubmenu(menu, view, lineNo, "insert", plugin);
+
+    // Group 3: Advanced & Meta
+    menu.addSeparator();
+    ADVANCED_BLOCKS.forEach((block) => {
+        menu.addItem((item) => {
+            item.setTitle(block.label)
+                .setIcon(block.icon)
+                .onClick(() => insertBlock(plugin, view, lineNo, block.type));
+        });
+    });
+
+    menu.showAtPosition(pos);
 }
