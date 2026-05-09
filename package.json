@@ -1,7 +1,7 @@
 {
 	"name": "notion-block",
 	"version": "1.0.0",
-	"description": "Notion-like block interactions for Obsidian.",
+	"description": "Notion-like block interactions for Live Preview.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",

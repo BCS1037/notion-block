@@ -3,7 +3,7 @@
 	"name": "Notion block",
 	"version": "1.0.0",
 	"minAppVersion": "1.4.0",
-	"description": "Notion-like block interactions for Obsidian Live Preview.",
+	"description": "Notion-like block interactions for Live Preview.",
 	"author": "BCS",
 	"authorUrl": "https://github.com/bcs",
 	"isDesktopOnly": true

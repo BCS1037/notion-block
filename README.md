@@ -1,6 +1,6 @@
 # Notion block
 
-Bring Notion-like block interactions to Obsidian Live Preview.
+Bring Notion-like block interactions to Live Preview.
 
 ## Features
 
