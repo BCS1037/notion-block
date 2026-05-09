@@ -1,38 +1,38 @@
-# Notion block
+# Notion Block for Obsidian
 
-Bring Notion-like block interactions to Live Preview.
+Bring Notion-like block interactions to Obsidian's Live Preview mode.
 
 ## Features
 
-### 1. Hover Handles
-- Hover over any line to reveal `+` (Add) and `⠿` (Drag/Transform) handles.
-- Smooth transitions and clean UI integrated with your Obsidian theme.
+### 1. Smooth Follow Handles
+- Handles smoothly follow your mouse vertically in the gutter area, automatically aligning with the line you're pointing at.
+- Allows you to perform actions on any line without needing to move the cursor first.
 
-### 2. Drag & Drop
-- **Long-press** the `⠿` handle (150ms) to drag a block.
-- **Visual indicators**: A ghost element follows your cursor, and a blue line shows the insertion point.
-- **Modes**: Switch between **Line mode** and **Paragraph mode** via the context menu (right-click the `⠿` handle).
-
-### 3. Transformation Menu
-- Click the `⠿` handle to convert a block to:
+### 2. Block Transformation Menu (`⠿`)
+- Click the handle to open a conversion menu using native Obsidian styling for a consistent look and feel.
+- Convert current blocks to:
     - Headings (H1, H2, H3)
     - Lists (Bullet, Numbered, Todo)
-    - Advanced blocks: Code, Math, Divider, and Callouts (12 variants).
+    - Advanced Blocks (Code, Math, Divider, Quote)
+    - Callouts (supports 12 built-in types)
 
-### 4. Smart Insert Menu
-- Click the `+` button to open a fuzzy-searchable menu.
-- **Keyboard navigation**: Search for block types and insert them instantly.
-- **Support for**: Internal/External links, Tags, Footnotes, Tables, and Frontmatter.
+### 3. Quick Insert Menu (`+`)
+- Click the `+` button to insert a new line below and open a searchable insertion menu.
+- Quickly add complex elements like Tables, Footnotes, and Frontmatter.
+
+### 4. Drag & Drop
+- Long-press the handle (150ms) to drag and reorder blocks visually.
+- Toggle between **Line mode** (single physical line) and **Paragraph mode** (logical block) via the handle's context menu (right-click).
 
 ## Installation
 
 ### Manual
-1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [Release](https://github.com/BCS1037/notion-block/releases).
-2. Move them to `<vault>/.obsidian/plugins/notion-block/`.
-3. Enable the plugin in settings.
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest Release](https://github.com/BCS1037/notion-block/releases).
+2. Move the files to your vault's plugin folder: `<vault>/.obsidian/plugins/notion-block/`.
+3. Enable the plugin in Obsidian settings.
 
-## Developer Policies
-This plugin adheres to the [Obsidian Developer Policies](https://docs.obsidian.md/Developer+policies).
+## Security & Compliance
+This plugin strictly follows [Obsidian Developer Policies](https://docs.obsidian.md/Developer+policies). It avoids using `innerHTML` and ensures all DOM manipulations are safe and performant.
 
 ## License
 MIT License.
