@@ -1,0 +1,75 @@
+.block-handle-wrap {
+    position: absolute;
+    left: -52px; /* Adjusted to center the 2 buttons (18+18+spacing) around -48px */
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 1.5em; /* Match line height roughly */
+    z-index: 10;
+    pointer-events: all;
+    background-color: transparent;
+    transition: opacity 0.2s ease;
+}
+
+.block-handle-button {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color 0.1s ease, color 0.1s ease, transform 0.1s ease;
+}
+
+.block-handle-button:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    transform: scale(1.1);
+}
+
+.block-handle-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Hide handles on mobile */
+@media (max-width: 768px) {
+    .block-handle-wrap {
+        display: none;
+    }
+}
+
+/* Drag & Drop Feedback */
+.block-drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    background: var(--background-primary);
+    border: 1px solid var(--divider-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+    box-shadow: var(--shadow-s);
+    opacity: 0.7;
+    z-index: 9999;
+    font-size: var(--font-adaptive-small);
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 300px;
+}
+
+.block-drag-indicator {
+    position: fixed;
+    height: 2px;
+    background-color: var(--interactive-accent);
+    pointer-events: none;
+    z-index: 9998;
+    display: none;
+    transition: top 0.1s ease;
+}
+
+.is-dragging-block * {
+    cursor: grabbing !important;
+    user-select: none !important;
+}
+

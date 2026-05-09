@@ -1,0 +1,287 @@
+diff --git "a/obsidian.d.ts" "b/obsidian.d.ts"
+index 10f7044..8d228fe 100644
+--- "a/obsidian.d.ts"
++++ "b/obsidian.d.ts"
+@@ -13,12 +13,6 @@ declare global {
+         each<T>(object: {
+             [key: string]: T;
+         }, callback: (value: T, key?: string) => boolean | void, context?: any): boolean;
+-        /**
+-         * Determines whether an object has a property with the specified name.
+-         * @param o An object.
+-         * @param v A property name.
+-         */
+-        hasOwn(o: object, v: PropertyKey): boolean;
+     }
+     interface ArrayConstructor {
+         combine<T>(arrays: T[][]): T[];
+@@ -80,7 +74,7 @@ declare global {
+     }
+     interface Element extends Node {
+         getText(): string;
+-        setText(val: string | DocumentFragment | Node): void;
++        setText(val: string | DocumentFragment): void;
+         addClass(...classes: string[]): void;
+         addClasses(classes: string[]): void;
+         removeClass(...classes: string[]): void;
+@@ -96,9 +90,6 @@ declare global {
+         getCssPropertyValue(property: string, pseudoElement?: string): string;
+         isActiveElement(): boolean;
+     }
+-    type HTMLElementListenerMap<T> = {
+-        [K in keyof HTMLElementEventMap]?: (this: T, event: HTMLElementEventMap[K]) => any;
+-    };
+     interface HTMLElement extends Element {
+         show(): void;
+         hide(): void;
+@@ -113,7 +104,6 @@ declare global {
+         isShown(): boolean;
+         setCssStyles(styles: Partial<CSSStyleDeclaration>): void;
+         setCssProps(props: Record<string, string>): void;
+-        addEventListeners(listeners: HTMLElementListenerMap<this>): void;
+         /**
+          * Get the inner width of this element without padding.
+          */
+@@ -144,10 +134,7 @@ declare global {
+         find(selector: string): HTMLElement;
+         findAll(selector: string): HTMLElement[];
+     }
+-    type DomElementListenerMap<T> = {
+-        [K in keyof HTMLElementEventMap as `on${K}`]?: (this: T, event: HTMLElementEventMap[K]) => any;
+-    };
+-    type DomElementInfo<T> = {
++    interface DomElementInfo {
+         /**
+          * The class to be assigned. Can be a space-separated string or an array of strings.
+          */
+@@ -175,7 +162,7 @@ declare global {
+         prepend?: boolean;
+         placeholder?: string;
+         href?: string;
+-    } & DomElementListenerMap<T>;
++    }
+     interface SvgElementInfo {
+         /**
+          * The class to be assigned. Can be a space-separated string or an array of strings.
+@@ -197,21 +184,21 @@ declare global {
+         /**
+          * Create an element and append it to this node.
+          */
+-        createEl<K extends keyof HTMLElementTagNameMap>(tag: K, o?: DomElementInfo<HTMLElementTagNameMap[K]> | string, callback?: (el: HTMLElementTagNameMap[K]) => void): HTMLElementTagNameMap[K];
+-        createDiv(o?: DomElementInfo<HTMLDivElement> | string, callback?: (el: HTMLDivElement) => void): HTMLDivElement;
+-        createSpan(o?: DomElementInfo<HTMLSpanElement> | string, callback?: (el: HTMLSpanElement) => void): HTMLSpanElement;
++        createEl<K extends keyof HTMLElementTagNameMap>(tag: K, o?: DomElementInfo | string, callback?: (el: HTMLElementTagNameMap[K]) => void): HTMLElementTagNameMap[K];
++        createDiv(o?: DomElementInfo | string, callback?: (el: HTMLDivElement) => void): HTMLDivElement;
++        createSpan(o?: DomElementInfo | string, callback?: (el: HTMLSpanElement) => void): HTMLSpanElement;
+         createSvg<K extends keyof SVGElementTagNameMap>(tag: K, o?: SvgElementInfo | string, callback?: (el: SVGElementTagNameMap[K]) => void): SVGElementTagNameMap[K];
+     }
+-    function createEl<K extends keyof HTMLElementTagNameMap>(tag: K, o?: DomElementInfo<HTMLElementTagNameMap[K]> | string, callback?: (el: HTMLElementTagNameMap[K]) => void): HTMLElementTagNameMap[K];
+-    function createDiv(o?: DomElementInfo<HTMLDivElement> | string, callback?: (el: HTMLDivElement) => void): HTMLDivElement;
+-    function createSpan(o?: DomElementInfo<HTMLSpanElement> | string, callback?: (el: HTMLSpanElement) => void): HTMLSpanElement;
++    function createEl<K extends keyof HTMLElementTagNameMap>(tag: K, o?: DomElementInfo | string, callback?: (el: HTMLElementTagNameMap[K]) => void): HTMLElementTagNameMap[K];
++    function createDiv(o?: DomElementInfo | string, callback?: (el: HTMLDivElement) => void): HTMLDivElement;
++    function createSpan(o?: DomElementInfo | string, callback?: (el: HTMLSpanElement) => void): HTMLSpanElement;
+     function createSvg<K extends keyof SVGElementTagNameMap>(tag: K, o?: SvgElementInfo | string, callback?: (el: SVGElementTagNameMap[K]) => void): SVGElementTagNameMap[K];
+     function createFragment(callback?: (el: DocumentFragment) => void): DocumentFragment;
+     interface EventListenerInfo {
+         selector: string;
+-        listener: (this: HTMLElement | Document, ev: any, delegateTarget: HTMLElement) => any;
++        listener: Function;
+         options?: boolean | AddEventListenerOptions;
+-        callback: (this: HTMLElement | Document, ev: any) => any;
++        callback: Function;
+     }
+     interface HTMLElement extends Element {
+         _EVENTS?: {
+@@ -296,33 +283,6 @@ declare global {
+         touchType: 'stylus' | 'direct';
+     }
+ }
+-import { Completion } from '@codemirror/autocomplete';
+-import { DBSchema } from 'idb';
+-import { DecorationSet } from '@codemirror/view';
+-import { Directory } from '@capacitor/filesystem/dist/esm/definitions';
+-import { EditorSelection as EditorSelection_2 } from '@codemirror/state';
+-import { EditorState as EditorState_2 } from '@codemirror/state';
+-import { EditorView } from '@codemirror/view';
+-import { Extension } from '@codemirror/state';
+-import { FileStatInfo } from '@capacitor/filesystem/dist/esm/definitions';
+-import { LanguageSupport } from '@codemirror/language-upstream';
+-import type * as Moment from 'moment';
+-import type { Node as Node_2 } from 'unist';
+-import { nodeFs } from 'node:fs';
+-import { nodePath } from 'node:path';
+-import { nodeUrl } from 'node:url';
+-import { StatAllResult } from '@capacitor/filesystem/dist/esm/definitions';
+-import { StateField } from '@codemirror/state';
+-import { StatRes } from '@capacitor/filesystem/dist/esm/definitions';
+-import { StoreKey } from 'idb';
+-import type { StoreNames } from 'idb/build/entry';
+-import type { StoreValue } from 'idb/build/entry';
+-import type { StringMap } from 'libs/i18next';
+-import { Text as Text_2 } from '@codemirror/state';
+-import { Transaction } from '@codemirror/state';
+-import { ViewPlugin } from '@codemirror/view';
+-import { ViewUpdate } from '@codemirror/view';
+-import { WidgetType } from '@codemirror/view';
+ 
+ /**
+  * Attach to an `<input>` element or a `<div contentEditable>` to add type-ahead
+@@ -1874,14 +1834,14 @@ export class Component {
+      * @public
+      * @since 0.9.7
+      */
+-    load(): void | Promise<void>;
++    load(): void;
+     /**
+      * Override this to load your component
+      * @public
+      * @virtual
+      * @since 0.9.7
+      */
+-    onload(): void | Promise<void>;
++    onload(): void;
+     /**
+      * Unload this component and its children
+      * @public
+@@ -3806,28 +3766,52 @@ export interface Loc {
+ }
+ 
+ /**
++ * This is the editor for Obsidian Mobile as well as the WYSIWYG editor.
+  * @public
+  */
+-export interface MarkdownCodePostProcessorContext extends MarkdownPostProcessorContext {
++export class MarkdownEditView implements MarkdownSubView, HoverParent, MarkdownFileInfo {
+ 
+-}
++    /** @public */
++    app: App;
+ 
+-/**
+- * This is the editor for Obsidian Mobile as well as the WYSIWYG editor.
+- * @public
+- */
+-export class MarkdownEditView extends MarkdownEditor implements MarkdownSubView {
++    /** @public */
++    hoverPopover: HoverPopover;
+ 
+     /**
+      * @public
+      */
+     constructor(view: MarkdownView);
+ 
++    /**
++     * @public
++     */
++    clear(): void;
++    /**
++     * @public
++     */
++    get(): string;
+     /**
+      * @public
+      */
+     set(data: string, clear: boolean): void;
+ 
++    /** @public */
++    get file(): TFile;
++
++    /**
++     * @public
++     */
++    getSelection(): string;
++
++    /**
++     * @public
++     */
++    getScroll(): number;
++    /**
++     * @public
++     */
++    applyScroll(scroll: number): void;
++
+ }
+ 
+ /**
+@@ -3932,7 +3916,7 @@ export class MarkdownPreviewRenderer {
+      * @public
+      * @since 0.12.11
+      */
+-    static createCodeBlockPostProcessor(language: string, handler: (source: string, el: HTMLElement, ctx: MarkdownCodePostProcessorContext) => Promise<any> | void): (el: HTMLElement, ctx: MarkdownPostProcessorContext) => void;
++    static createCodeBlockPostProcessor(language: string, handler: (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => Promise<any> | void): (el: HTMLElement, ctx: MarkdownPostProcessorContext) => void;
+ 
+ }
+ 
+@@ -4067,10 +4051,10 @@ export interface MarkdownSubView {
+ /**
+  * @public
+  */
+-export class MarkdownView extends TextFileView implements MarkdownViewController, MetadataViewController {
++export class MarkdownView extends TextFileView implements MarkdownFileInfo {
+ 
+     /** @public */
+-    get editor(): Editor;
++    editor: Editor;
+ 
+     /** @public */
+     previewMode: MarkdownPreviewView;
+@@ -4861,7 +4845,7 @@ export abstract class Plugin extends Component {
+      * @public
+      * @since 0.9.7
+      */
+-    registerMarkdownCodeBlockProcessor(language: string, handler: (source: string, el: HTMLElement, ctx: MarkdownCodePostProcessorContext) => Promise<any> | void, sortOrder?: number): MarkdownPostProcessor;
++    registerMarkdownCodeBlockProcessor(language: string, handler: (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => Promise<any> | void, sortOrder?: number): MarkdownPostProcessor;
+     /**
+      * Register a Base view handler that can be used to render data from property queries.
+      *
+@@ -6820,7 +6804,7 @@ export class Workspace extends Events {
+      * @public
+      * @since 0.9.7
+      */
+-    rootSplit: WorkspaceRoot | null;
++    rootSplit: WorkspaceRoot;
+ 
+     /**
+      * Indicates the currently focused leaf, if one exists.
+@@ -6857,6 +6841,13 @@ export class Workspace extends Events {
+      */
+     requestSaveLayout: Debouncer<[], Promise<void>>;
+ 
++    /**
++     * A component managing the current editor.
++     * This can be null if the active view has no editor.
++     * @public
++     */
++    activeEditor: MarkdownFileInfo | null;
++
+     /**
+      * Runs the callback function right away if layout is already ready,
+      * or push it to a queue to be called later when layout is ready.
+@@ -6876,17 +6867,6 @@ export class Workspace extends Events {
+      */
+     getLayout(): Record<string, unknown>;
+ 
+-    /**
+-     * A component managing the current editor.
+-     * This can be null if the active view has no editor.
+-     * @public
+-     */
+-    get activeEditor(): MarkdownViewController | null;
+-    /**
+-     * @private
+-     */
+-    set activeEditor(editor: MarkdownViewController);
+-
+     /**
+      * @public
+      * @since 0.9.11
+@@ -6920,7 +6900,7 @@ export class Workspace extends Events {
+      * @public
+      * @deprecated - You should use {@link Workspace.getLeaf|getLeaf(false)} instead which does the same thing.
+      */
+-    getUnpinnedLeaf(active?: boolean): WorkspaceLeaf;
++    getUnpinnedLeaf(): WorkspaceLeaf;
+     /**
+      * Creates a new leaf in a leaf adjacent to the currently active leaf.
+      * If direction is `'vertical'`, the leaf will appear to the right.
