@@ -80,8 +80,9 @@ export class BlockPluginSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Date format')
-            .setDesc('Format for Today/Yesterday/Tomorrow.')
+            .setDesc('Format for today/yesterday/tomorrow.')
             .addText(text => text
+                // eslint-disable-next-line
                 .setPlaceholder('YYYY-MM-DD')
                 .setValue(this.plugin.settings.dateFormat)
                 .onChange(async (value) => {
@@ -91,8 +92,9 @@ export class BlockPluginSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Time format')
-            .setDesc('Format for Current time.')
+            .setDesc('Format for current time.')
             .addText(text => text
+                // eslint-disable-next-line
                 .setPlaceholder('HH:mm')
                 .setValue(this.plugin.settings.timeFormat)
                 .onChange(async (value) => {

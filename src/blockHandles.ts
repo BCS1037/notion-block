@@ -29,7 +29,7 @@ class BlockHandleWidget extends WidgetType {
         const dragButton = wrap.createEl("div", { cls: "block-handle-button drag-button", attr: { "aria-label": "Drag to reorder" } });
         setIcon(dragButton, "grip-vertical");
 
-        let dragTimeout: any = null;
+        let dragTimeout: ReturnType<typeof setTimeout> | null = null;
         let isDragging = false;
 
         dragButton.onmousedown = (e) => {
@@ -81,7 +81,7 @@ class BlockHandleWidget extends WidgetType {
 export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromClass(class {
     decorations: DecorationSet;
     hoveredLine: number | null = null;
-    hideTimeout: any = null;
+    hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
     constructor(view: EditorView) {
         this.decorations = Decoration.none;
@@ -106,7 +106,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
                 widget: new BlockHandleWidget(plugin, line.number),
                 side: -1 // Place before the line
             }).range(line.from));
-        } catch (e) {
+        } catch {
             // Line might not exist anymore
         }
         
@@ -151,7 +151,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
                 clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
-        } catch (e) {
+        } catch {
             // Document might be changing
         }
     }

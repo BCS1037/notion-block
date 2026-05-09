@@ -58,11 +58,11 @@ var BlockPluginSettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.hideDelay = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Date format").setDesc("Format for Today/Yesterday/Tomorrow.").addText((text) => text.setPlaceholder("YYYY-MM-DD").setValue(this.plugin.settings.dateFormat).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Date format").setDesc("Format for today/yesterday/tomorrow.").addText((text) => text.setPlaceholder("YYYY-MM-DD").setValue(this.plugin.settings.dateFormat).onChange(async (value) => {
       this.plugin.settings.dateFormat = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Time format").setDesc("Format for Current time.").addText((text) => text.setPlaceholder("HH:mm").setValue(this.plugin.settings.timeFormat).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Time format").setDesc("Format for current time.").addText((text) => text.setPlaceholder("HH:mm").setValue(this.plugin.settings.timeFormat).onChange(async (value) => {
       this.plugin.settings.timeFormat = value;
       await this.plugin.saveSettings();
     }));
@@ -223,7 +223,7 @@ function insertBlock(plugin, view, lineNo, targetType) {
         insertText = "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |";
         cursorOffset = 23;
         break;
-      case "frontmatter":
+      case "frontmatter": {
         isMetadata = true;
         const firstLine = view.state.doc.line(1);
         if (firstLine.text === "---") {
@@ -233,7 +233,8 @@ function insertBlock(plugin, view, lineNo, targetType) {
         customPos = 0;
         cursorOffset = 4;
         break;
-      case "footnote":
+      }
+      case "footnote": {
         const footnoteId = Math.floor(Math.random() * 1e3);
         insertText = `[^${footnoteId}]`;
         const docEnd = view.state.doc.length;
@@ -243,6 +244,7 @@ function insertBlock(plugin, view, lineNo, targetType) {
 [^${footnoteId}]: ` }
         });
         break;
+      }
       default:
         insertText = "";
         break;
@@ -642,10 +644,8 @@ var NotionBlock = class extends import_obsidian5.Plugin {
     await this.loadSettings();
     this.registerEditorExtension([blockHandlesExtension(this)]);
     this.addSettingTab(new BlockPluginSettingTab(this.app, this));
-    console.log("Block Plugin loaded");
   }
   onunload() {
-    console.log("Block Plugin unloaded");
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());

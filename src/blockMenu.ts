@@ -91,13 +91,13 @@ export function showTransformMenu(app: App, view: EditorView, lineNo: number, ev
 
     // Callout Submenu
     menu.addItem((item) => {
-        const sub = (item as any).setSubmenu();
+        const sub = (item as unknown as { setSubmenu: () => Menu }).setSubmenu();
         item.setTitle("Callout").setIcon("megaphone");
         
         const calloutTypes = ["note", "info", "todo", "tip", "success", "question", "warning", "failure", "danger", "bug", "example", "quote"];
         
         calloutTypes.forEach(type => {
-            sub.addItem((subItem: any) => {
+            sub.addItem((subItem: MenuItem) => {
                 subItem.setTitle(type.charAt(0).toUpperCase() + type.slice(1))
                        .onClick(() => transformLine(view, lineNo, `callout-${type}`));
             });

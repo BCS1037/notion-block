@@ -102,7 +102,7 @@ export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: numbe
                 insertText = "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |";
                 cursorOffset = 23; // End of first cell
                 break;
-            case "frontmatter":
+            case "frontmatter": {
                 isMetadata = true;
                 const firstLine = view.state.doc.line(1);
                 if (firstLine.text === "---") {
@@ -113,7 +113,8 @@ export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: numbe
                 customPos = 0;
                 cursorOffset = 4;
                 break;
-            case "footnote":
+            }
+            case "footnote": {
                 const footnoteId = Math.floor(Math.random() * 1000);
                 insertText = `[^${footnoteId}]`;
                 const docEnd = view.state.doc.length;
@@ -121,6 +122,7 @@ export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: numbe
                     changes: { from: docEnd, insert: `\n\n[^${footnoteId}]: ` }
                 });
                 break;
+            }
             default: insertText = ""; break;
         }
     }

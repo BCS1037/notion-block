@@ -14,11 +14,9 @@ export default class NotionBlock extends Plugin {
         // Add settings tab
         this.addSettingTab(new BlockPluginSettingTab(this.app, this));
 
-        console.log('Block Plugin loaded');
     }
 
     onunload() {
-        console.log('Block Plugin unloaded');
     }
 
     async loadSettings() {

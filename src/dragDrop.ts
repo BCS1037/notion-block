@@ -1,4 +1,4 @@
-import { Transaction } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import NotionBlock from "./main";
 
 export class DragManager {
