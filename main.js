@@ -387,8 +387,7 @@ var DragManager = class {
       const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
       if (pos !== null) {
         const line = this.view.state.doc.lineAt(pos);
-        this.currentTargetLine = line.number;
-        this.updateIndicator(line.number, event.clientY);
+        this.updateIndicator(line.number, event.clientX, event.clientY);
       }
     };
     this.onMouseUp = (event) => {
@@ -396,7 +395,9 @@ var DragManager = class {
     };
   }
   startDrag(lineNo, event) {
+    var _a;
     this.isDragging = true;
+    (_a = window.getSelection()) == null ? void 0 : _a.removeAllRanges();
     const doc = this.view.state.doc;
     let fromPos, toPos, text;
     if (this.plugin.settings.dragGranularity === "paragraph") {
@@ -461,30 +462,61 @@ var DragManager = class {
       });
     }
   }
-  updateIndicator(lineNo, mouseY) {
+  updateIndicator(lineNo, mouseX, mouseY) {
+    var _a;
     if (!this.indicatorEl)
       return;
-    const line = this.view.state.doc.line(lineNo);
-    const coords = this.view.coordsAtPos(line.from);
-    if (coords) {
-      this.indicatorEl.setCssStyles({
-        top: `${coords.top}px`,
-        left: `${coords.left}px`,
-        width: `${this.view.contentDOM.clientWidth}px`,
-        display: "block"
-      });
+    try {
+      const line = this.view.state.doc.line(lineNo);
+      const coords = this.view.coordsAtPos(line.from);
+      if (coords) {
+        const lineBlock = this.view.lineBlockAt(line.from);
+        const lineRect = (_a = lineBlock.dom) == null ? void 0 : _a.getBoundingClientRect();
+        let top = coords.top;
+        let targetLine = lineNo;
+        if (lineRect) {
+          const midPoint = lineRect.top + lineRect.height / 2;
+          if (mouseY > midPoint) {
+            top = lineRect.bottom;
+            targetLine = lineNo + 1;
+          } else {
+            top = lineRect.top;
+            targetLine = lineNo;
+          }
+        }
+        this.currentTargetLine = targetLine;
+        this.indicatorEl.setCssStyles({
+          top: `${top}px`,
+          left: `${coords.left}px`,
+          width: `${this.view.contentDOM.clientWidth}px`,
+          display: "block"
+        });
+      }
+    } catch (e) {
     }
   }
   moveBlock(startBlock, toLineNo) {
     const doc = this.view.state.doc;
+    const textToMove = startBlock.text;
+    if (toLineNo > doc.lines) {
+      this.view.dispatch({
+        changes: [
+          { from: doc.length, insert: "\n" + textToMove },
+          { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
+        ],
+        scrollIntoView: true,
+        userEvent: "move.block"
+      });
+      return;
+    }
     const toLine = doc.line(toLineNo);
     if (toLine.from >= startBlock.from && toLine.to <= startBlock.to)
       return;
-    const textToMove = startBlock.text;
     if (startBlock.from < toLine.from) {
       this.view.dispatch({
         changes: [
-          { from: toLine.to, insert: "\n" + textToMove },
+          { from: toLine.from, insert: textToMove + "\n" },
+          // Insert before the target line
           { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
         ],
         scrollIntoView: true,
@@ -520,6 +552,8 @@ var BlockHandleWidget = class extends import_view.WidgetType {
     let dragTimeout = null;
     let isDragging = false;
     dragButton.onmousedown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       isDragging = false;
       dragTimeout = setTimeout(() => {
         isDragging = true;

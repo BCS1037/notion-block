@@ -13,6 +13,9 @@ export class DragManager {
     startDrag(lineNo: number, event: MouseEvent) {
         this.isDragging = true;
         
+        // Clear any existing selection
+        window.getSelection()?.removeAllRanges();
+        
         const doc = this.view.state.doc;
         let fromPos, toPos, text;
 
@@ -68,8 +71,7 @@ export class DragManager {
         const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
         if (pos !== null) {
             const line = this.view.state.doc.lineAt(pos);
-            this.currentTargetLine = line.number;
-            this.updateIndicator(line.number, event.clientY);
+            this.updateIndicator(line.number, event.clientX, event.clientY);
         }
     };
 
@@ -111,38 +113,72 @@ export class DragManager {
         }
     }
 
-    private updateIndicator(lineNo: number, mouseY: number) {
+    private updateIndicator(lineNo: number, mouseX: number, mouseY: number) {
         if (!this.indicatorEl) return;
 
-        const line = this.view.state.doc.line(lineNo);
-        const coords = this.view.coordsAtPos(line.from);
-        
-        if (coords) {
-            // Decide if we insert before or after the line based on mouse position
-            // For now, let's keep it simple: always insert before the hovered line
-            this.indicatorEl.setCssStyles({
-                top: `${coords.top}px`,
-                left: `${coords.left}px`,
-                width: `${this.view.contentDOM.clientWidth}px`,
-                display: "block"
-            });
+        try {
+            const line = this.view.state.doc.line(lineNo);
+            const coords = this.view.coordsAtPos(line.from);
+            
+            if (coords) {
+                const lineBlock = this.view.lineBlockAt(line.from);
+                const lineRect = lineBlock.dom?.getBoundingClientRect();
+                
+                let top = coords.top;
+                let targetLine = lineNo;
+
+                if (lineRect) {
+                    const midPoint = lineRect.top + lineRect.height / 2;
+                    if (mouseY > midPoint) {
+                        top = lineRect.bottom;
+                        targetLine = lineNo + 1;
+                    } else {
+                        top = lineRect.top;
+                        targetLine = lineNo;
+                    }
+                }
+
+                this.currentTargetLine = targetLine;
+
+                this.indicatorEl.setCssStyles({
+                    top: `${top}px`,
+                    left: `${coords.left}px`,
+                    width: `${this.view.contentDOM.clientWidth}px`,
+                    display: "block"
+                });
+            }
+        } catch (e) {
+            // Ignore if line doesn't exist
         }
     }
 
     private moveBlock(startBlock: { from: number, to: number, text: string }, toLineNo: number) {
         const doc = this.view.state.doc;
+        const textToMove = startBlock.text;
+
+        // Handle insertion at the end of the document
+        if (toLineNo > doc.lines) {
+            this.view.dispatch({
+                changes: [
+                    { from: doc.length, insert: "\n" + textToMove },
+                    { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
+                ],
+                scrollIntoView: true,
+                userEvent: "move.block"
+            });
+            return;
+        }
+
         const toLine = doc.line(toLineNo);
 
         // If dropping inside the same block, do nothing
         if (toLine.from >= startBlock.from && toLine.to <= startBlock.to) return;
-
-        const textToMove = startBlock.text;
         
         if (startBlock.from < toLine.from) {
             // Moving down
             this.view.dispatch({
                 changes: [
-                    { from: toLine.to, insert: "\n" + textToMove },
+                    { from: toLine.from, insert: textToMove + "\n" }, // Insert before the target line
                     { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
                 ],
                 scrollIntoView: true,

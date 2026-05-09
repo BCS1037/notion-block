@@ -68,8 +68,10 @@
     transition: top 0.1s ease;
 }
 
+.is-dragging-block,
 .is-dragging-block * {
     cursor: grabbing !important;
     user-select: none !important;
+    -webkit-user-select: none !important;
 }
 

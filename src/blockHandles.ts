@@ -33,6 +33,10 @@ class BlockHandleWidget extends WidgetType {
         let isDragging = false;
 
         dragButton.onmousedown = (e) => {
+            // Prevent browser from starting text selection
+            e.preventDefault();
+            e.stopPropagation();
+            
             isDragging = false;
             dragTimeout = setTimeout(() => {
                 isDragging = true;
