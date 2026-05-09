@@ -1,14 +1,20 @@
 .block-handle-wrap {
     position: absolute;
-    left: -52px; /* Adjusted to center the 2 buttons (18+18+spacing) around -48px */
+    left: 0;
+    top: 0;
     display: flex;
     align-items: center;
     gap: 4px;
-    height: 1.5em; /* Match line height roughly */
+    height: 24px; /* Fixed height for better centering calculation */
     z-index: 10;
     pointer-events: all;
     background-color: transparent;
-    transition: opacity 0.2s ease;
+    transition: transform 0.08s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    opacity: 0;
+}
+
+.block-handle-wrap:not(.is-hidden) {
+    opacity: 1;
 }
 
 .block-handle-button {

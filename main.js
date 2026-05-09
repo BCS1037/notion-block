@@ -528,104 +528,116 @@ var DragManager = class {
 };
 
 // src/blockHandles.ts
-var BlockHandleWidget = class extends import_view.WidgetType {
-  constructor(plugin, lineNo) {
-    super();
-    this.plugin = plugin;
-    this.lineNo = lineNo;
+var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
+  constructor(view) {
+    this.handleEl = null;
+    this.addButton = null;
+    this.dragButton = null;
+    this.hoveredLine = null;
+    this.hideTimeout = null;
+    this.dragManager = null;
+    this.createHandle(view);
   }
-  toDOM(view) {
-    const wrap = document.createElement("div");
-    wrap.className = "block-handle-wrap";
-    const addButton = wrap.createEl("div", { cls: "block-handle-button add-button", attr: { "aria-label": "Add block below" } });
-    (0, import_obsidian4.setIcon)(addButton, "plus");
-    const dragButton = wrap.createEl("div", { cls: "block-handle-button drag-button", attr: { "aria-label": "Drag to reorder" } });
-    (0, import_obsidian4.setIcon)(dragButton, "grip-vertical");
+  createHandle(view) {
+    this.handleEl = document.createElement("div");
+    this.handleEl.className = "block-handle-wrap is-hidden";
+    this.addButton = this.handleEl.createEl("div", {
+      cls: "block-handle-button add-button",
+      attr: { "aria-label": "Add block below" }
+    });
+    (0, import_obsidian4.setIcon)(this.addButton, "plus");
+    this.dragButton = this.handleEl.createEl("div", {
+      cls: "block-handle-button drag-button",
+      attr: { "aria-label": "Drag to reorder" }
+    });
+    (0, import_obsidian4.setIcon)(this.dragButton, "grip-vertical");
     let dragTimeout = null;
     let isDragging = false;
-    dragButton.onmousedown = (e) => {
+    this.dragButton.onmousedown = (e) => {
+      if (this.hoveredLine === null)
+        return;
       e.preventDefault();
       e.stopPropagation();
       isDragging = false;
       dragTimeout = setTimeout(() => {
         isDragging = true;
         if (!this.dragManager) {
-          this.dragManager = new DragManager(this.plugin, view);
+          this.dragManager = new DragManager(plugin, view);
         }
-        this.dragManager.startDrag(this.lineNo, e);
+        this.dragManager.startDrag(this.hoveredLine, e);
       }, 150);
     };
-    dragButton.onmouseup = (e) => {
+    this.dragButton.onmouseup = (e) => {
       clearTimeout(dragTimeout);
-      if (!isDragging) {
-        const rect = dragButton.getBoundingClientRect();
-        showTransformMenu(this.plugin, view, this.lineNo, {
+      if (!isDragging && this.hoveredLine !== null) {
+        const rect = this.dragButton.getBoundingClientRect();
+        showTransformMenu(plugin, view, this.hoveredLine, {
           x: rect.left,
           y: rect.bottom
         });
       }
     };
-    dragButton.onclick = (e) => {
-      e.stopPropagation();
-    };
-    dragButton.oncontextmenu = (e) => {
+    this.dragButton.onclick = (e) => e.stopPropagation();
+    this.dragButton.oncontextmenu = (e) => {
       const menu = new import_obsidian4.Menu();
       menu.addItem((item) => {
-        item.setTitle(this.plugin.settings.dragGranularity === "line" ? "Switch to paragraph mode" : "Switch to line mode").setIcon("layers").onClick(async () => {
-          this.plugin.settings.dragGranularity = this.plugin.settings.dragGranularity === "line" ? "paragraph" : "line";
-          await this.plugin.saveSettings();
+        item.setTitle(plugin.settings.dragGranularity === "line" ? "Switch to paragraph mode" : "Switch to line mode").setIcon("layers").onClick(async () => {
+          plugin.settings.dragGranularity = plugin.settings.dragGranularity === "line" ? "paragraph" : "line";
+          await plugin.saveSettings();
         });
       });
       menu.showAtMouseEvent(e);
       e.preventDefault();
     };
-    addButton.onclick = (e) => {
+    this.addButton.onclick = (e) => {
+      if (this.hoveredLine === null)
+        return;
       e.stopPropagation();
-      const rect = addButton.getBoundingClientRect();
+      const rect = this.addButton.getBoundingClientRect();
       const pos = { x: rect.left, y: rect.bottom };
-      const line = view.state.doc.line(this.lineNo);
+      const line = view.state.doc.line(this.hoveredLine);
       view.dispatch({
         changes: { from: line.to, insert: "\n" },
         selection: { anchor: line.to + 1 },
         scrollIntoView: true
       });
-      showInsertMenu(this.plugin, view, this.lineNo + 1, pos);
+      showInsertMenu(plugin, view, this.hoveredLine + 1, pos);
     };
-    return wrap;
-  }
-  ignoreEvent() {
-    return false;
-  }
-};
-var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
-  constructor(view) {
-    this.hoveredLine = null;
-    this.hideTimeout = null;
-    this.decorations = import_view.Decoration.none;
+    view.scrollDOM.appendChild(this.handleEl);
   }
   update(update) {
-    if (update.docChanged || update.viewportChanged) {
-      this.updateDecorations(update.view);
+    if ((update.docChanged || update.viewportChanged) && this.hoveredLine !== null) {
+      this.updatePosition(update.view);
     }
   }
-  updateDecorations(view) {
-    if (this.hoveredLine === null) {
-      this.decorations = import_view.Decoration.none;
+  updatePosition(view) {
+    if (this.hoveredLine === null || !this.handleEl)
       return;
-    }
-    const widgets = [];
     try {
       const line = view.state.doc.line(this.hoveredLine);
-      widgets.push(import_view.Decoration.widget({
-        widget: new BlockHandleWidget(plugin, line.number),
-        side: -1
-        // Place before the line
-      }).range(line.from));
+      const coords = view.coordsAtPos(line.from);
+      if (!coords)
+        return;
+      const scrollerRect = view.scrollDOM.getBoundingClientRect();
+      let top = coords.top - scrollerRect.top + view.scrollDOM.scrollTop;
+      const lineHeight = coords.bottom - coords.top;
+      const handleHeight = this.handleEl.offsetHeight || 24;
+      top += (lineHeight - handleHeight) / 2;
+      const left = view.contentDOM.offsetLeft - 52;
+      this.handleEl.style.transform = `translate3d(${left}px, ${Math.round(top)}px, 0)`;
     } catch (e) {
+      this.hideHandle();
     }
-    this.decorations = import_view.Decoration.set(widgets);
   }
   handleMouseMove(view, event) {
+    var _a;
+    const rect = view.dom.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (x < -100 || x > rect.width + 100 || y < 0 || y > rect.height) {
+      this.handleMouseLeave(view);
+      return;
+    }
     if (event.target.closest(".block-handle-wrap")) {
       if (this.hideTimeout) {
         clearTimeout(this.hideTimeout);
@@ -633,23 +645,17 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       }
       return;
     }
-    const rect = view.contentDOM.getBoundingClientRect();
-    const x = event.clientX;
-    const y = event.clientY;
-    if (x < rect.left - 100 || x > rect.right + 100 || y < rect.top || y > rect.bottom) {
-      this.handleMouseLeave(view);
-      return;
-    }
-    const targetX = Math.max(rect.left + 5, x);
-    const pos = view.posAtCoords({ x: targetX, y });
+    const contentRect = view.contentDOM.getBoundingClientRect();
+    const targetX = contentRect.left + 5;
+    const pos = view.posAtCoords({ x: targetX, y: event.clientY });
     if (pos === null)
       return;
     try {
       const line = view.state.doc.lineAt(pos);
       if (this.hoveredLine !== line.number) {
         this.hoveredLine = line.number;
-        this.updateDecorations(view);
-        view.requestMeasure();
+        (_a = this.handleEl) == null ? void 0 : _a.classList.remove("is-hidden");
+        this.updatePosition(view);
       }
       if (this.hideTimeout) {
         clearTimeout(this.hideTimeout);
@@ -659,14 +665,23 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
     }
   }
   handleMouseLeave(view) {
+    if (this.hideTimeout)
+      clearTimeout(this.hideTimeout);
     this.hideTimeout = setTimeout(() => {
+      var _a, _b;
+      if ((_a = this.handleEl) == null ? void 0 : _a.matches(":hover")) {
+        return;
+      }
       this.hoveredLine = null;
-      this.updateDecorations(view);
-      view.requestMeasure();
+      (_b = this.handleEl) == null ? void 0 : _b.classList.add("is-hidden");
     }, plugin.settings.hideDelay);
   }
+  destroy() {
+    if (this.handleEl) {
+      this.handleEl.remove();
+    }
+  }
 }, {
-  decorations: (v) => v.decorations,
   eventHandlers: {
     mousemove(event, view) {
       this.handleMouseMove(view, event);
