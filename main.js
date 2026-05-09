@@ -556,6 +556,10 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
     this.dragButton.onmousedown = (e) => {
       if (this.hoveredLine === null)
         return;
+      if (this.hideTimeout) {
+        clearTimeout(this.hideTimeout);
+        this.hideTimeout = null;
+      }
       e.preventDefault();
       e.stopPropagation();
       isDragging = false;
@@ -592,16 +596,14 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
     this.addButton.onclick = (e) => {
       if (this.hoveredLine === null)
         return;
+      if (this.hideTimeout) {
+        clearTimeout(this.hideTimeout);
+        this.hideTimeout = null;
+      }
       e.stopPropagation();
       const rect = this.addButton.getBoundingClientRect();
       const pos = { x: rect.left, y: rect.bottom };
-      const line = view.state.doc.line(this.hoveredLine);
-      view.dispatch({
-        changes: { from: line.to, insert: "\n" },
-        selection: { anchor: line.to + 1 },
-        scrollIntoView: true
-      });
-      showInsertMenu(plugin, view, this.hoveredLine + 1, pos);
+      showInsertMenu(plugin, view, this.hoveredLine, pos);
     };
     view.scrollDOM.appendChild(this.handleEl);
   }
@@ -630,7 +632,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
     }
   }
   handleMouseMove(view, event) {
-    var _a;
+    var _a, _b;
     const rect = view.dom.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -643,6 +645,21 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
         clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
+      if ((_a = this.handleEl) == null ? void 0 : _a.classList.contains("is-hidden")) {
+        this.handleEl.classList.remove("is-hidden");
+        if (this.hoveredLine === null) {
+          const contentRect2 = view.contentDOM.getBoundingClientRect();
+          const targetX2 = contentRect2.left + 5;
+          const pos2 = view.posAtCoords({ x: targetX2, y: event.clientY });
+          if (pos2 !== null) {
+            try {
+              this.hoveredLine = view.state.doc.lineAt(pos2).number;
+            } catch (e) {
+            }
+          }
+        }
+        this.updatePosition(view);
+      }
       return;
     }
     const contentRect = view.contentDOM.getBoundingClientRect();
@@ -654,7 +671,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       const line = view.state.doc.lineAt(pos);
       if (this.hoveredLine !== line.number) {
         this.hoveredLine = line.number;
-        (_a = this.handleEl) == null ? void 0 : _a.classList.remove("is-hidden");
+        (_b = this.handleEl) == null ? void 0 : _b.classList.remove("is-hidden");
         this.updatePosition(view);
       }
       if (this.hideTimeout) {
@@ -675,6 +692,16 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       this.hoveredLine = null;
       (_b = this.handleEl) == null ? void 0 : _b.classList.add("is-hidden");
     }, plugin.settings.hideDelay);
+  }
+  hideHandle() {
+    this.hoveredLine = null;
+    if (this.handleEl) {
+      this.handleEl.classList.add("is-hidden");
+    }
+    if (this.hideTimeout) {
+      clearTimeout(this.hideTimeout);
+      this.hideTimeout = null;
+    }
   }
   destroy() {
     if (this.handleEl) {

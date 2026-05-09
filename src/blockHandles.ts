@@ -43,6 +43,10 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
 
         this.dragButton.onmousedown = (e) => {
             if (this.hoveredLine === null) return;
+            if (this.hideTimeout) {
+                clearTimeout(this.hideTimeout);
+                this.hideTimeout = null;
+            }
             e.preventDefault();
             e.stopPropagation();
             
@@ -85,20 +89,18 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
 
         this.addButton.onclick = (e) => {
             if (this.hoveredLine === null) return;
+            if (this.hideTimeout) {
+                clearTimeout(this.hideTimeout);
+                this.hideTimeout = null;
+            }
             e.stopPropagation();
             
             const rect = this.addButton!.getBoundingClientRect();
             const pos = { x: rect.left, y: rect.bottom };
 
-            const line = view.state.doc.line(this.hoveredLine);
-            
-            view.dispatch({
-                changes: { from: line.to, insert: "\n" },
-                selection: { anchor: line.to + 1 },
-                scrollIntoView: true
-            });
-            
-            showInsertMenu(plugin, view, this.hoveredLine + 1, pos);
+            // Just show the menu for the current line. 
+            // insertBlock will handle creating a new line if the current one isn't empty.
+            showInsertMenu(plugin, view, this.hoveredLine, pos);
         };
 
         // Add to scrollDOM so it scrolls with the content
@@ -160,6 +162,21 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
                 clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
+            if (this.handleEl?.classList.contains("is-hidden")) {
+                this.handleEl.classList.remove("is-hidden");
+                // If it was fully nullified, try to recover the line from current Y
+                if (this.hoveredLine === null) {
+                    const contentRect = view.contentDOM.getBoundingClientRect();
+                    const targetX = contentRect.left + 5; 
+                    const pos = view.posAtCoords({ x: targetX, y: event.clientY });
+                    if (pos !== null) {
+                        try {
+                            this.hoveredLine = view.state.doc.lineAt(pos).number;
+                        } catch {}
+                    }
+                }
+                this.updatePosition(view);
+            }
             return;
         }
 
@@ -199,6 +216,17 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             this.hoveredLine = null;
             this.handleEl?.classList.add("is-hidden");
         }, plugin.settings.hideDelay);
+    }
+
+    hideHandle() {
+        this.hoveredLine = null;
+        if (this.handleEl) {
+            this.handleEl.classList.add("is-hidden");
+        }
+        if (this.hideTimeout) {
+            clearTimeout(this.hideTimeout);
+            this.hideTimeout = null;
+        }
     }
 
     destroy() {
