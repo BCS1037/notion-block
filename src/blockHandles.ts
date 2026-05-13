@@ -14,7 +14,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     dragButton: HTMLElement | null = null;
     
     hoveredLine: number | null = null;
-    hideTimeout: ReturnType<typeof setTimeout> | null = null;
+    hideTimeout: number | null = null;
     dragManager: DragManager | null = null;
 
     constructor(_view: EditorView) {
@@ -39,20 +39,20 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         setIcon(this.dragButton, "grip-vertical");
 
         // Drag & Menu Logic
-        let dragTimeout: ReturnType<typeof setTimeout> | null = null;
+        let dragTimeout: number | null = null;
         let isDragging = false;
 
         this.dragButton.onmousedown = (e) => {
             if (this.hoveredLine === null) return;
             if (this.hideTimeout) {
-                activeWindow.clearTimeout(this.hideTimeout);
+                window.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
             e.preventDefault();
             e.stopPropagation();
             
             isDragging = false;
-            dragTimeout = activeWindow.setTimeout(() => {
+            dragTimeout = window.setTimeout(() => {
                 isDragging = true;
                 if (!this.dragManager) {
                     this.dragManager = new DragManager(plugin, view);
@@ -62,7 +62,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         };
 
         this.dragButton.onmouseup = (_e: MouseEvent) => {
-            activeWindow.clearTimeout(dragTimeout!);
+            window.clearTimeout(dragTimeout!);
             if (!isDragging && this.hoveredLine !== null) {
                 const rect = this.dragButton!.getBoundingClientRect();
                 showTransformMenu(plugin, view, this.hoveredLine, {
@@ -91,7 +91,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         this.addButton.onclick = (e) => {
             if (this.hoveredLine === null) return;
             if (this.hideTimeout) {
-                activeWindow.clearTimeout(this.hideTimeout);
+                window.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
             e.stopPropagation();
@@ -158,7 +158,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
 
         if ((event.target as HTMLElement).closest(".block-handle-wrap")) {
             if (this.hideTimeout) {
-                activeWindow.clearTimeout(this.hideTimeout);
+                window.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
             if (this.handleEl?.classList.contains("is-hidden")) {
@@ -198,7 +198,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             }
 
             if (this.hideTimeout) {
-                activeWindow.clearTimeout(this.hideTimeout);
+                window.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
         } catch {
@@ -207,9 +207,9 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     }
 
     handleMouseLeave() {
-        if (this.hideTimeout) activeWindow.clearTimeout(this.hideTimeout);
+        if (this.hideTimeout) window.clearTimeout(this.hideTimeout);
         
-        this.hideTimeout = activeWindow.setTimeout(() => {
+        this.hideTimeout = window.setTimeout(() => {
             // Check if mouse is actually over the handle before hiding
             if (this.handleEl?.matches(":hover")) {
                 return;
@@ -225,7 +225,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             this.handleEl.classList.add("is-hidden");
         }
         if (this.hideTimeout) {
-            activeWindow.clearTimeout(this.hideTimeout);
+            window.clearTimeout(this.hideTimeout);
             this.hideTimeout = null;
         }
     }

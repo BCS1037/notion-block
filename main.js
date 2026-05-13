@@ -484,7 +484,7 @@ var DragManager = class {
           display: "block"
         });
       }
-    } catch (_e) {
+    } catch (e) {
     }
   }
   moveBlock(startBlock, toLineNo) {
@@ -557,13 +557,13 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       if (this.hoveredLine === null)
         return;
       if (this.hideTimeout) {
-        activeWindow.clearTimeout(this.hideTimeout);
+        window.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
       e.preventDefault();
       e.stopPropagation();
       isDragging = false;
-      dragTimeout = activeWindow.setTimeout(() => {
+      dragTimeout = window.setTimeout(() => {
         isDragging = true;
         if (!this.dragManager) {
           this.dragManager = new DragManager(plugin, view);
@@ -572,7 +572,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       }, 150);
     };
     this.dragButton.onmouseup = (_e) => {
-      activeWindow.clearTimeout(dragTimeout);
+      window.clearTimeout(dragTimeout);
       if (!isDragging && this.hoveredLine !== null) {
         const rect = this.dragButton.getBoundingClientRect();
         showTransformMenu(plugin, view, this.hoveredLine, {
@@ -597,7 +597,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       if (this.hoveredLine === null)
         return;
       if (this.hideTimeout) {
-        activeWindow.clearTimeout(this.hideTimeout);
+        window.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
       e.stopPropagation();
@@ -641,7 +641,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
     }
     if (event.target.closest(".block-handle-wrap")) {
       if (this.hideTimeout) {
-        activeWindow.clearTimeout(this.hideTimeout);
+        window.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
       if ((_a = this.handleEl) == null ? void 0 : _a.classList.contains("is-hidden")) {
@@ -674,7 +674,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
         this.updatePosition(view);
       }
       if (this.hideTimeout) {
-        activeWindow.clearTimeout(this.hideTimeout);
+        window.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
     } catch (e) {
@@ -682,8 +682,8 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
   }
   handleMouseLeave() {
     if (this.hideTimeout)
-      activeWindow.clearTimeout(this.hideTimeout);
-    this.hideTimeout = activeWindow.setTimeout(() => {
+      window.clearTimeout(this.hideTimeout);
+    this.hideTimeout = window.setTimeout(() => {
       var _a, _b;
       if ((_a = this.handleEl) == null ? void 0 : _a.matches(":hover")) {
         return;
@@ -698,7 +698,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       this.handleEl.classList.add("is-hidden");
     }
     if (this.hideTimeout) {
-      activeWindow.clearTimeout(this.hideTimeout);
+      window.clearTimeout(this.hideTimeout);
       this.hideTimeout = null;
     }
   }

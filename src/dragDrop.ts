@@ -148,7 +148,7 @@ export class DragManager {
                     display: "block"
                 });
             }
-        } catch (_e) {
+        } catch {
             // Ignore if line doesn't exist
         }
     }

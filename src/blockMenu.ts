@@ -1,4 +1,4 @@
-import { Menu, MenuItem, setIcon } from "obsidian";
+import { Menu, MenuItem } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { transformLine, insertBlock } from "./blockTransform";
 import NotionBlock from "./main";
