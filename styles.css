@@ -74,11 +74,11 @@
     transition: top 0.1s ease;
 }
 
-.is-dragging-block,
-.is-dragging-block * {
-    cursor: grabbing !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
+body.is-dragging-block,
+body.is-dragging-block * {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* 原生菜单样式微调 - 极致精致 */

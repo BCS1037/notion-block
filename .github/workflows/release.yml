@@ -26,23 +26,20 @@ jobs:
           npm install
           npm run build
 
-      - name: Attest main.js
+      - name: Attest assets
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: main.js
-
-      - name: Attest styles.css
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: styles.css
+          subject-path: |
+            main.js
+            styles.css
 
       - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            main.js
+            manifest.json
+            styles.css
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="${GITHUB_REF#refs/tags/}"
-
-          gh release create "$tag" \
-            --title "Release $tag" \
-            --generate-notes \
-            main.js manifest.json styles.css
