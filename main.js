@@ -539,7 +539,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
     this.createHandle(_view);
   }
   createHandle(view) {
-    this.handleEl = activeDocument.createDiv();
+    this.handleEl = view.scrollDOM.createDiv();
     this.handleEl.className = "block-handle-wrap is-hidden";
     this.addButton = this.handleEl.createDiv({
       cls: "block-handle-button add-button",
@@ -605,7 +605,6 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       const pos = { x: rect.left, y: rect.bottom };
       showInsertMenu(plugin, view, this.hoveredLine, pos);
     };
-    view.scrollDOM.appendChild(this.handleEl);
   }
   update(update) {
     if ((update.docChanged || update.viewportChanged) && this.hoveredLine !== null) {

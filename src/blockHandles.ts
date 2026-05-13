@@ -22,7 +22,8 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     }
 
     createHandle(view: EditorView) {
-        this.handleEl = activeDocument.createDiv();
+        // Create handle directly as child of scrollDOM (not activeDocument which throws HierarchyRequestError)
+        this.handleEl = view.scrollDOM.createDiv();
         this.handleEl.className = "block-handle-wrap is-hidden";
         
         this.addButton = this.handleEl.createDiv({ 
@@ -103,8 +104,6 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             showInsertMenu(plugin, view, this.hoveredLine, pos);
         };
 
-        // Add to scrollDOM so it scrolls with the content
-        view.scrollDOM.appendChild(this.handleEl);
     }
 
     update(update: ViewUpdate) {
