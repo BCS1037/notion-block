@@ -83,29 +83,31 @@
 
 /* 原生菜单样式微调 - 极致精致 */
 .menu-item {
-    display: flex !important;
-    align-items: center !important;
-    padding: 4px 10px !important;
-    min-height: 26px !important;
+    display: flex;
+    align-items: center;
+    padding: 4px 10px;
+    min-height: 26px;
 }
 
-.menu-item-icon {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 18px !important; /* 进一步缩小容器 */
-    height: 18px !important;
-    margin-right: 10px !important;
-    opacity: 0.8 !important;
-    visibility: visible !important;
+.menu .menu-item .menu-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    opacity: 0.85;
+    flex-shrink: 0;
 }
 
-.menu-item-icon svg {
-    width: 13px !important; /* 精致小图标 */
-    height: 13px !important;
-    display: block !important;
+.menu .menu-item .menu-item-icon svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+    stroke: currentColor;
+    fill: none;
 }
 
 .menu-item-title {
-    font-size: 13px !important;
+    font-size: 13px;
 }

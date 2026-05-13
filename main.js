@@ -102,6 +102,7 @@ function transformLine(view, lineNo, targetType) {
         newText = "### " + content;
         break;
       case "bullet":
+      case "toggle":
         newText = "- " + content;
         break;
       case "numbered":
@@ -161,14 +162,15 @@ function insertBlock(plugin, view, lineNo, targetType) {
       case "h3":
         insertText = "### ";
         break;
+      case "todo":
+        insertText = "- [ ] ";
+        break;
+      case "toggle":
       case "bullet":
         insertText = "- ";
         break;
       case "numbered":
         insertText = "1. ";
-        break;
-      case "todo":
-        insertText = "- [ ] ";
         break;
       case "blockquote":
         insertText = "> ";
@@ -266,13 +268,14 @@ function insertBlock(plugin, view, lineNo, targetType) {
 
 // src/blockMenu.ts
 var BASIC_BLOCKS = [
-  { type: "paragraph", label: "Text", icon: "pilcrow" },
-  { type: "h1", label: "Heading 1", icon: "heading-1" },
-  { type: "h2", label: "Heading 2", icon: "heading-2" },
-  { type: "h3", label: "Heading 3", icon: "heading-3" },
-  { type: "bullet", label: "Bullet list", icon: "list" },
+  { type: "paragraph", label: "Text", icon: "text" },
+  { type: "h1", label: "Heading 1", icon: "heading1" },
+  { type: "h2", label: "Heading 2", icon: "heading2" },
+  { type: "h3", label: "Heading 3", icon: "heading3" },
+  { type: "todo", label: "To-do list", icon: "check-square" },
+  { type: "bullet", label: "Bulleted list", icon: "list" },
   { type: "numbered", label: "Numbered list", icon: "list-ordered" },
-  { type: "todo", label: "Todo list", icon: "check-square" },
+  { type: "toggle", label: "Toggle list", icon: "chevron-right" },
   { type: "blockquote", label: "Quote", icon: "quote" },
   { type: "code", label: "Code block", icon: "code" },
   { type: "math", label: "Math block", icon: "sigma" },
@@ -295,7 +298,7 @@ var CALLOUT_ICONS = {
   note: "pencil",
   info: "info",
   todo: "check-square",
-  tip: "sparkles",
+  tip: "flame",
   success: "check",
   question: "help-circle",
   warning: "alert-triangle",
@@ -305,37 +308,39 @@ var CALLOUT_ICONS = {
   example: "list",
   quote: "quote"
 };
-function addCalloutSubmenu(menu, view, lineNo, mode, plugin) {
+function addMenuItemWithIcon(menu, label, icon, onClick) {
+  let itemRef;
+  menu.addItem((item) => {
+    item.setTitle(label).setIcon(icon).onClick(onClick);
+    itemRef = item;
+  });
+  return itemRef;
+}
+function addCalloutSubmenu(menu, view, lineNo, mode, _plugin) {
   menu.addItem((item) => {
     const sub = item.setSubmenu();
     item.setTitle("Callout").setIcon("megaphone");
     CALLOUT_TYPES.forEach((type) => {
-      sub.addItem((subItem) => {
-        subItem.setTitle(type.charAt(0).toUpperCase() + type.slice(1)).setIcon(CALLOUT_ICONS[type] || "megaphone").onClick(() => {
-          if (mode === "transform") {
-            transformLine(view, lineNo, `callout-${type}`);
-          } else if (plugin) {
-            insertBlock(plugin, view, lineNo, `callout-${type}`);
-          }
-        });
+      addMenuItemWithIcon(sub, type.charAt(0).toUpperCase() + type.slice(1), CALLOUT_ICONS[type] || "megaphone", () => {
+        if (mode === "transform") {
+          transformLine(view, lineNo, `callout-${type}`);
+        } else if (_plugin) {
+          insertBlock(_plugin, view, lineNo, `callout-${type}`);
+        }
       });
     });
   });
 }
-function showTransformMenu(plugin, view, lineNo, pos) {
+function showTransformMenu(_plugin, view, lineNo, pos) {
   const menu = new import_obsidian3.Menu();
   BASIC_BLOCKS.forEach((block, index) => {
-    if (index === 1 || index === 4)
+    if (index === 1 || index === 4 || index === 8)
       menu.addSeparator();
-    menu.addItem((item) => {
-      item.setTitle(block.label).setIcon(block.icon).onClick(() => transformLine(view, lineNo, block.type));
-    });
+    addMenuItemWithIcon(menu, block.label, block.icon, () => transformLine(view, lineNo, block.type));
   });
   menu.addSeparator();
   addCalloutSubmenu(menu, view, lineNo, "transform");
-  menu.addItem((item) => {
-    item.setTitle("Comment").setIcon("message-square").onClick(() => transformLine(view, lineNo, "comment"));
-  });
+  addMenuItemWithIcon(menu, "Comment", "message-square", () => transformLine(view, lineNo, "comment"));
   if (pos instanceof MouseEvent) {
     menu.showAtMouseEvent(pos);
   } else {
@@ -345,19 +350,15 @@ function showTransformMenu(plugin, view, lineNo, pos) {
 function showInsertMenu(plugin, view, lineNo, pos) {
   const menu = new import_obsidian3.Menu();
   BASIC_BLOCKS.forEach((block, index) => {
-    if (index === 1 || index === 4)
+    if (index === 1 || index === 4 || index === 8)
       menu.addSeparator();
-    menu.addItem((item) => {
-      item.setTitle(block.label).setIcon(block.icon).onClick(() => insertBlock(plugin, view, lineNo, block.type));
-    });
+    addMenuItemWithIcon(menu, block.label, block.icon, () => insertBlock(plugin, view, lineNo, block.type));
   });
   menu.addSeparator();
   addCalloutSubmenu(menu, view, lineNo, "insert", plugin);
   menu.addSeparator();
   ADVANCED_BLOCKS.forEach((block) => {
-    menu.addItem((item) => {
-      item.setTitle(block.label).setIcon(block.icon).onClick(() => insertBlock(plugin, view, lineNo, block.type));
-    });
+    addMenuItemWithIcon(menu, block.label, block.icon, () => insertBlock(plugin, view, lineNo, block.type));
   });
   menu.showAtPosition(pos);
 }
@@ -379,17 +380,17 @@ var DragManager = class {
       const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
       if (pos !== null) {
         const line = this.view.state.doc.lineAt(pos);
-        this.updateIndicator(line.number, event.clientX, event.clientY);
+        this.updateIndicator(line.number, event.clientY);
       }
     };
-    this.onMouseUp = (event) => {
+    this.onMouseUp = (_event) => {
       this.stopDrag();
     };
   }
   startDrag(lineNo, event) {
     var _a;
     this.isDragging = true;
-    (_a = window.getSelection()) == null ? void 0 : _a.removeAllRanges();
+    (_a = activeWindow.getSelection()) == null ? void 0 : _a.removeAllRanges();
     const doc = this.view.state.doc;
     let fromPos, toPos, text;
     if (this.plugin.settings.dragGranularity === "paragraph") {
@@ -413,17 +414,17 @@ var DragManager = class {
       text = line.text;
     }
     this.startBlock = { from: fromPos, to: toPos, text };
-    this.ghostEl = document.body.createEl("div", {
+    this.ghostEl = activeDocument.body.createDiv({
       cls: "block-drag-ghost",
       text: text.slice(0, 50) + (text.length > 50 ? "..." : "")
     });
     this.updateGhostPosition(event.clientX, event.clientY);
-    this.indicatorEl = document.body.createEl("div", {
+    this.indicatorEl = activeDocument.body.createDiv({
       cls: "block-drag-indicator"
     });
-    document.addEventListener("mousemove", this.onMouseMove);
-    document.addEventListener("mouseup", this.onMouseUp);
-    document.body.addClass("is-dragging-block");
+    activeDocument.addEventListener("mousemove", this.onMouseMove);
+    activeDocument.addEventListener("mouseup", this.onMouseUp);
+    activeDocument.body.addClass("is-dragging-block");
   }
   stopDrag() {
     if (!this.isDragging)
@@ -442,9 +443,9 @@ var DragManager = class {
       this.indicatorEl.remove();
       this.indicatorEl = null;
     }
-    document.removeEventListener("mousemove", this.onMouseMove);
-    document.removeEventListener("mouseup", this.onMouseUp);
-    document.body.removeClass("is-dragging-block");
+    activeDocument.removeEventListener("mousemove", this.onMouseMove);
+    activeDocument.removeEventListener("mouseup", this.onMouseUp);
+    activeDocument.body.removeClass("is-dragging-block");
   }
   updateGhostPosition(x, y) {
     if (this.ghostEl) {
@@ -454,25 +455,24 @@ var DragManager = class {
       });
     }
   }
-  updateIndicator(lineNo, mouseX, mouseY) {
-    var _a;
+  updateIndicator(lineNo, mouseY) {
     if (!this.indicatorEl)
       return;
     try {
       const line = this.view.state.doc.line(lineNo);
       const coords = this.view.coordsAtPos(line.from);
       if (coords) {
-        const lineBlock = this.view.lineBlockAt(line.from);
-        const lineRect = (_a = lineBlock.dom) == null ? void 0 : _a.getBoundingClientRect();
+        const endCoords = this.view.coordsAtPos(line.to);
         let top = coords.top;
         let targetLine = lineNo;
-        if (lineRect) {
-          const midPoint = lineRect.top + lineRect.height / 2;
+        if (endCoords) {
+          const lineBottom = endCoords.bottom;
+          const midPoint = coords.top + (lineBottom - coords.top) / 2;
           if (mouseY > midPoint) {
-            top = lineRect.bottom;
+            top = lineBottom;
             targetLine = lineNo + 1;
           } else {
-            top = lineRect.top;
+            top = coords.top;
             targetLine = lineNo;
           }
         }
@@ -484,7 +484,7 @@ var DragManager = class {
           display: "block"
         });
       }
-    } catch (e) {
+    } catch (_e) {
     }
   }
   moveBlock(startBlock, toLineNo) {
@@ -529,24 +529,24 @@ var DragManager = class {
 
 // src/blockHandles.ts
 var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
-  constructor(view) {
+  constructor(_view) {
     this.handleEl = null;
     this.addButton = null;
     this.dragButton = null;
     this.hoveredLine = null;
     this.hideTimeout = null;
     this.dragManager = null;
-    this.createHandle(view);
+    this.createHandle(_view);
   }
   createHandle(view) {
-    this.handleEl = document.createElement("div");
+    this.handleEl = activeDocument.createDiv();
     this.handleEl.className = "block-handle-wrap is-hidden";
-    this.addButton = this.handleEl.createEl("div", {
+    this.addButton = this.handleEl.createDiv({
       cls: "block-handle-button add-button",
       attr: { "aria-label": "Add block below" }
     });
     (0, import_obsidian4.setIcon)(this.addButton, "plus");
-    this.dragButton = this.handleEl.createEl("div", {
+    this.dragButton = this.handleEl.createDiv({
       cls: "block-handle-button drag-button",
       attr: { "aria-label": "Drag to reorder" }
     });
@@ -557,13 +557,13 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       if (this.hoveredLine === null)
         return;
       if (this.hideTimeout) {
-        clearTimeout(this.hideTimeout);
+        activeWindow.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
       e.preventDefault();
       e.stopPropagation();
       isDragging = false;
-      dragTimeout = setTimeout(() => {
+      dragTimeout = activeWindow.setTimeout(() => {
         isDragging = true;
         if (!this.dragManager) {
           this.dragManager = new DragManager(plugin, view);
@@ -571,8 +571,8 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
         this.dragManager.startDrag(this.hoveredLine, e);
       }, 150);
     };
-    this.dragButton.onmouseup = (e) => {
-      clearTimeout(dragTimeout);
+    this.dragButton.onmouseup = (_e) => {
+      activeWindow.clearTimeout(dragTimeout);
       if (!isDragging && this.hoveredLine !== null) {
         const rect = this.dragButton.getBoundingClientRect();
         showTransformMenu(plugin, view, this.hoveredLine, {
@@ -597,7 +597,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       if (this.hoveredLine === null)
         return;
       if (this.hideTimeout) {
-        clearTimeout(this.hideTimeout);
+        activeWindow.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
       e.stopPropagation();
@@ -637,12 +637,12 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     if (x < -100 || x > rect.width + 100 || y < 0 || y > rect.height) {
-      this.handleMouseLeave(view);
+      this.handleMouseLeave();
       return;
     }
     if (event.target.closest(".block-handle-wrap")) {
       if (this.hideTimeout) {
-        clearTimeout(this.hideTimeout);
+        activeWindow.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
       if ((_a = this.handleEl) == null ? void 0 : _a.classList.contains("is-hidden")) {
@@ -675,16 +675,16 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
         this.updatePosition(view);
       }
       if (this.hideTimeout) {
-        clearTimeout(this.hideTimeout);
+        activeWindow.clearTimeout(this.hideTimeout);
         this.hideTimeout = null;
       }
     } catch (e) {
     }
   }
-  handleMouseLeave(view) {
+  handleMouseLeave() {
     if (this.hideTimeout)
-      clearTimeout(this.hideTimeout);
-    this.hideTimeout = setTimeout(() => {
+      activeWindow.clearTimeout(this.hideTimeout);
+    this.hideTimeout = activeWindow.setTimeout(() => {
       var _a, _b;
       if ((_a = this.handleEl) == null ? void 0 : _a.matches(":hover")) {
         return;
@@ -699,7 +699,7 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
       this.handleEl.classList.add("is-hidden");
     }
     if (this.hideTimeout) {
-      clearTimeout(this.hideTimeout);
+      activeWindow.clearTimeout(this.hideTimeout);
       this.hideTimeout = null;
     }
   }
@@ -710,11 +710,11 @@ var blockHandlesExtension = (plugin) => import_view.ViewPlugin.fromClass(class {
   }
 }, {
   eventHandlers: {
-    mousemove(event, view) {
-      this.handleMouseMove(view, event);
+    mousemove(event, _view) {
+      this.handleMouseMove(_view, event);
     },
-    mouseleave(event, view) {
-      this.handleMouseLeave(view);
+    mouseleave(_event, _view) {
+      this.handleMouseLeave();
     }
   }
 });
@@ -729,7 +729,8 @@ var NotionBlock = class extends import_obsidian5.Plugin {
   onunload() {
   }
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
   }
   async saveSettings() {
     await this.saveData(this.settings);

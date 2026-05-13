@@ -40,7 +40,8 @@ export function transformLine(view: EditorView, lineNo: number, targetType: stri
             case "h1": newText = "# " + content; break;
             case "h2": newText = "## " + content; break;
             case "h3": newText = "### " + content; break;
-            case "bullet": newText = "- " + content; break;
+            case "bullet": 
+            case "toggle": newText = "- " + content; break;
             case "numbered": newText = "1. " + content; break;
             case "todo": newText = "- [ ] " + content; break;
             case "blockquote": newText = "> " + content; break;
@@ -79,9 +80,10 @@ export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: numbe
             case "h1": insertText = "# "; break;
             case "h2": insertText = "## "; break;
             case "h3": insertText = "### "; break;
+            case "todo": insertText = "- [ ] "; break;
+            case "toggle":
             case "bullet": insertText = "- "; break;
             case "numbered": insertText = "1. "; break;
-            case "todo": insertText = "- [ ] "; break;
             case "blockquote": insertText = "> "; break;
             case "paragraph": insertText = ""; break;
             case "code": insertText = "```\n\n```"; cursorOffset = 4; break;

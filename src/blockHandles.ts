@@ -17,21 +17,21 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     hideTimeout: ReturnType<typeof setTimeout> | null = null;
     dragManager: DragManager | null = null;
 
-    constructor(view: EditorView) {
-        this.createHandle(view);
+    constructor(_view: EditorView) {
+        this.createHandle(_view);
     }
 
     createHandle(view: EditorView) {
-        this.handleEl = document.createElement("div");
+        this.handleEl = activeDocument.createDiv();
         this.handleEl.className = "block-handle-wrap is-hidden";
         
-        this.addButton = this.handleEl.createEl("div", { 
+        this.addButton = this.handleEl.createDiv({ 
             cls: "block-handle-button add-button", 
             attr: { "aria-label": "Add block below" } 
         });
         setIcon(this.addButton, "plus");
         
-        this.dragButton = this.handleEl.createEl("div", { 
+        this.dragButton = this.handleEl.createDiv({ 
             cls: "block-handle-button drag-button", 
             attr: { "aria-label": "Drag to reorder" } 
         });
@@ -44,14 +44,14 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         this.dragButton.onmousedown = (e) => {
             if (this.hoveredLine === null) return;
             if (this.hideTimeout) {
-                clearTimeout(this.hideTimeout);
+                activeWindow.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
             e.preventDefault();
             e.stopPropagation();
             
             isDragging = false;
-            dragTimeout = setTimeout(() => {
+            dragTimeout = activeWindow.setTimeout(() => {
                 isDragging = true;
                 if (!this.dragManager) {
                     this.dragManager = new DragManager(plugin, view);
@@ -60,8 +60,8 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             }, 150);
         };
 
-        this.dragButton.onmouseup = (e) => {
-            clearTimeout(dragTimeout!);
+        this.dragButton.onmouseup = (_e: MouseEvent) => {
+            activeWindow.clearTimeout(dragTimeout!);
             if (!isDragging && this.hoveredLine !== null) {
                 const rect = this.dragButton!.getBoundingClientRect();
                 showTransformMenu(plugin, view, this.hoveredLine, {
@@ -90,7 +90,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         this.addButton.onclick = (e) => {
             if (this.hoveredLine === null) return;
             if (this.hideTimeout) {
-                clearTimeout(this.hideTimeout);
+                activeWindow.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
             e.stopPropagation();
@@ -153,13 +153,13 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
 
         // Detection range check - Expand left range to accommodate the handle
         if (x < -100 || x > rect.width + 100 || y < 0 || y > rect.height) {
-            this.handleMouseLeave(view);
+            this.handleMouseLeave();
             return;
         }
 
         if ((event.target as HTMLElement).closest(".block-handle-wrap")) {
             if (this.hideTimeout) {
-                clearTimeout(this.hideTimeout);
+                activeWindow.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
             if (this.handleEl?.classList.contains("is-hidden")) {
@@ -172,7 +172,9 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
                     if (pos !== null) {
                         try {
                             this.hoveredLine = view.state.doc.lineAt(pos).number;
-                        } catch {}
+                        } catch {
+                            /* position may be invalid during document changes */
+                        }
                     }
                 }
                 this.updatePosition(view);
@@ -197,7 +199,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             }
 
             if (this.hideTimeout) {
-                clearTimeout(this.hideTimeout);
+                activeWindow.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
             }
         } catch {
@@ -205,10 +207,10 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         }
     }
 
-    handleMouseLeave(view: EditorView) {
-        if (this.hideTimeout) clearTimeout(this.hideTimeout);
+    handleMouseLeave() {
+        if (this.hideTimeout) activeWindow.clearTimeout(this.hideTimeout);
         
-        this.hideTimeout = setTimeout(() => {
+        this.hideTimeout = activeWindow.setTimeout(() => {
             // Check if mouse is actually over the handle before hiding
             if (this.handleEl?.matches(":hover")) {
                 return;
@@ -224,7 +226,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             this.handleEl.classList.add("is-hidden");
         }
         if (this.hideTimeout) {
-            clearTimeout(this.hideTimeout);
+            activeWindow.clearTimeout(this.hideTimeout);
             this.hideTimeout = null;
         }
     }
@@ -236,11 +238,11 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     }
 }, {
     eventHandlers: {
-        mousemove(event, view) {
-            this.handleMouseMove(view, event);
+        mousemove(event, _view) {
+            this.handleMouseMove(_view, event);
         },
-        mouseleave(event, view) {
-            this.handleMouseLeave(view);
+        mouseleave(_event, _view) {
+            this.handleMouseLeave();
         }
     }
 });

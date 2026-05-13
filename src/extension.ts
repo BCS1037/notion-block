@@ -9,6 +9,7 @@ import {
 } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
+import type { SyntaxNodeRef } from '@lezer/common';
 import { ExampleWidget } from './widget';
 
 // ============================================================
@@ -39,7 +40,7 @@ class HighlightPlugin implements PluginValue {
 			syntaxTree(view.state).iterate({
 				from,
 				to,
-				enter(node) {
+				enter(node: SyntaxNodeRef) {
 					// 示例：为列表标记符号添加 widget 装饰
 					if (node.type.name.startsWith('list')) {
 						const listCharFrom = node.from - 2;

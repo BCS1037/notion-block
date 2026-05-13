@@ -14,7 +14,7 @@ export class DragManager {
         this.isDragging = true;
         
         // Clear any existing selection
-        window.getSelection()?.removeAllRanges();
+        activeWindow.getSelection()?.removeAllRanges();
         
         const doc = this.view.state.doc;
         let fromPos, toPos, text;
@@ -45,22 +45,22 @@ export class DragManager {
         this.startBlock = { from: fromPos, to: toPos, text: text };
 
         // Create ghost element
-        this.ghostEl = document.body.createEl("div", {
+        this.ghostEl = activeDocument.body.createDiv({
             cls: "block-drag-ghost",
             text: text.slice(0, 50) + (text.length > 50 ? "..." : "")
         });
         this.updateGhostPosition(event.clientX, event.clientY);
 
         // Create indicator line
-        this.indicatorEl = document.body.createEl("div", {
+        this.indicatorEl = activeDocument.body.createDiv({
             cls: "block-drag-indicator"
         });
 
-        document.addEventListener("mousemove", this.onMouseMove);
-        document.addEventListener("mouseup", this.onMouseUp);
+        activeDocument.addEventListener("mousemove", this.onMouseMove);
+        activeDocument.addEventListener("mouseup", this.onMouseUp);
         
         // Prevent text selection during drag
-        document.body.addClass("is-dragging-block");
+        activeDocument.body.addClass("is-dragging-block");
     }
 
     private onMouseMove = (event: MouseEvent) => {
@@ -71,11 +71,11 @@ export class DragManager {
         const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
         if (pos !== null) {
             const line = this.view.state.doc.lineAt(pos);
-            this.updateIndicator(line.number, event.clientX, event.clientY);
+            this.updateIndicator(line.number, event.clientY);
         }
     };
 
-    private onMouseUp = (event: MouseEvent) => {
+    private onMouseUp = (_event: MouseEvent) => {
         this.stopDrag();
     };
 
@@ -99,9 +99,9 @@ export class DragManager {
             this.indicatorEl = null;
         }
 
-        document.removeEventListener("mousemove", this.onMouseMove);
-        document.removeEventListener("mouseup", this.onMouseUp);
-        document.body.removeClass("is-dragging-block");
+        activeDocument.removeEventListener("mousemove", this.onMouseMove);
+        activeDocument.removeEventListener("mouseup", this.onMouseUp);
+        activeDocument.body.removeClass("is-dragging-block");
     }
 
     private updateGhostPosition(x: number, y: number) {
@@ -113,7 +113,7 @@ export class DragManager {
         }
     }
 
-    private updateIndicator(lineNo: number, mouseX: number, mouseY: number) {
+    private updateIndicator(lineNo: number, mouseY: number) {
         if (!this.indicatorEl) return;
 
         try {
@@ -121,19 +121,20 @@ export class DragManager {
             const coords = this.view.coordsAtPos(line.from);
             
             if (coords) {
-                const lineBlock = this.view.lineBlockAt(line.from);
-                const lineRect = lineBlock.dom?.getBoundingClientRect();
+                // Use coordsAtPos for the end of line to determine full line height
+                const endCoords = this.view.coordsAtPos(line.to);
                 
                 let top = coords.top;
                 let targetLine = lineNo;
 
-                if (lineRect) {
-                    const midPoint = lineRect.top + lineRect.height / 2;
+                if (endCoords) {
+                    const lineBottom = endCoords.bottom;
+                    const midPoint = coords.top + (lineBottom - coords.top) / 2;
                     if (mouseY > midPoint) {
-                        top = lineRect.bottom;
+                        top = lineBottom;
                         targetLine = lineNo + 1;
                     } else {
-                        top = lineRect.top;
+                        top = coords.top;
                         targetLine = lineNo;
                     }
                 }
@@ -147,7 +148,7 @@ export class DragManager {
                     display: "block"
                 });
             }
-        } catch (e) {
+        } catch (_e) {
             // Ignore if line doesn't exist
         }
     }
