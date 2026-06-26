@@ -1,6 +1,9 @@
 import { EditorView } from "@codemirror/view";
-import { moment } from "obsidian";
+import { moment, Notice } from "obsidian";
+import type { TFile } from "obsidian";
 import NotionBlock from "./main";
+
+const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"]);
 
 export function detectBlockType(lineText: string): string {
     if (/^#{1,6} /.test(lineText)) return "heading";
@@ -19,10 +22,70 @@ export function stripPrefix(lineText: string): string {
         .replace(/^[-*+] \[[ x]\] /, "")
         .replace(/^[-*+] /, "")
         .replace(/^\d+\. /, "")
-        .replace(/^> \[!\w+\]\n?> ?/, "")
+        .replace(/^> \[![^\]]+\][+-]?\n?> ?/, "")
         .replace(/^> /, "")
         .replace(/^%%(.*)%%$/, "$1")
         .trim();
+}
+
+export async function insertImageFiles(plugin: NotionBlock, view: EditorView, lineNo: number, files: File[]): Promise<void> {
+    const imageFiles = files.filter(isImageFile);
+    if (imageFiles.length === 0) {
+        new Notice("请选择图片文件。");
+        return;
+    }
+
+    try {
+        const sourcePath = plugin.app.workspace.getActiveFile()?.path ?? "";
+        const links: string[] = [];
+
+        for (const file of imageFiles) {
+            const safeName = sanitizeAttachmentName(file.name);
+            const targetPath = await plugin.app.fileManager.getAvailablePathForAttachment(safeName, sourcePath);
+            const savedFile = await plugin.app.vault.createBinary(targetPath, await file.arrayBuffer());
+            links.push(toEmbedLink(plugin, savedFile, sourcePath));
+        }
+
+        insertTextAtLineEnd(view, lineNo, links.join("\n"), true);
+    } catch {
+        new Notice("插入图片失败。");
+    }
+}
+
+function insertTextAtLineEnd(view: EditorView, lineNo: number, insertText: string, insertAsBlock: boolean): void {
+    const line = view.state.doc.line(lineNo);
+    const needsNewLine = insertAsBlock && line.text.trim().length > 0;
+    const prefix = needsNewLine ? "\n" : "";
+    const pos = line.to;
+
+    view.dispatch({
+        changes: {
+            from: pos,
+            insert: prefix + insertText
+        },
+        selection: { anchor: pos + prefix.length + insertText.length },
+        scrollIntoView: true,
+        userEvent: "insert.block"
+    });
+}
+
+function isImageFile(file: File): boolean {
+    const ext = getFileExtension(file.name);
+    return IMAGE_EXTENSIONS.has(ext);
+}
+
+function sanitizeAttachmentName(name: string): string {
+    return name.replace(/[\\/\r\n\t]/g, "-").trim() || "image.png";
+}
+
+function getFileExtension(name: string): string {
+    const index = name.lastIndexOf(".");
+    if (index < 0) return "";
+    return name.slice(index + 1).toLowerCase();
+}
+
+function toEmbedLink(plugin: NotionBlock, file: TFile, sourcePath: string): string {
+    return `!${plugin.app.fileManager.generateMarkdownLink(file, sourcePath)}`;
 }
 
 export function transformLine(view: EditorView, lineNo: number, targetType: string) {
