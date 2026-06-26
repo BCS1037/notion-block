@@ -2,6 +2,9 @@
 
 Bring Notion-like block interactions to Obsidian's Live Preview mode.
 
+<img width="430" height="562" alt="image" src="https://github.com/user-attachments/assets/f84c7e2f-a3f9-49e6-872c-b394f9aeb2c4" />
+
+
 ## Features
 
 ### 1. Smooth Follow Handles
