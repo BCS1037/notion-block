@@ -7,14 +7,19 @@ export class DragManager {
     private isDragging = false;
     private startBlock: { from: number, to: number, text: string } | null = null;
     private currentTargetLine: number | null = null;
+    private ownerDocument: Document;
+    private ownerWindow: Window;
 
-    constructor(private plugin: NotionBlock, private view: EditorView) {}
+    constructor(private plugin: NotionBlock, private view: EditorView) {
+        this.ownerDocument = view.dom.ownerDocument;
+        this.ownerWindow = this.ownerDocument.defaultView ?? activeWindow;
+    }
 
     startDrag(lineNo: number, event: MouseEvent) {
         this.isDragging = true;
         
         // Clear any existing selection
-        activeWindow.getSelection()?.removeAllRanges();
+        this.ownerWindow.getSelection()?.removeAllRanges();
         
         const doc = this.view.state.doc;
         let fromPos, toPos, text;
@@ -45,22 +50,22 @@ export class DragManager {
         this.startBlock = { from: fromPos, to: toPos, text: text };
 
         // Create ghost element
-        this.ghostEl = activeDocument.body.createDiv({
+        this.ghostEl = this.ownerDocument.body.createDiv({
             cls: "block-drag-ghost",
             text: text.slice(0, 50) + (text.length > 50 ? "..." : "")
         });
         this.updateGhostPosition(event.clientX, event.clientY);
 
         // Create indicator line
-        this.indicatorEl = activeDocument.body.createDiv({
+        this.indicatorEl = this.ownerDocument.body.createDiv({
             cls: "block-drag-indicator"
         });
 
-        activeDocument.addEventListener("mousemove", this.onMouseMove);
-        activeDocument.addEventListener("mouseup", this.onMouseUp);
+        this.ownerDocument.addEventListener("mousemove", this.onMouseMove);
+        this.ownerDocument.addEventListener("mouseup", this.onMouseUp);
         
         // Prevent text selection during drag
-        activeDocument.body.addClass("is-dragging-block");
+        this.ownerDocument.body.addClass("is-dragging-block");
     }
 
     private onMouseMove = (event: MouseEvent) => {
@@ -99,9 +104,9 @@ export class DragManager {
             this.indicatorEl = null;
         }
 
-        activeDocument.removeEventListener("mousemove", this.onMouseMove);
-        activeDocument.removeEventListener("mouseup", this.onMouseUp);
-        activeDocument.body.removeClass("is-dragging-block");
+        this.ownerDocument.removeEventListener("mousemove", this.onMouseMove);
+        this.ownerDocument.removeEventListener("mouseup", this.onMouseUp);
+        this.ownerDocument.body.removeClass("is-dragging-block");
     }
 
     private updateGhostPosition(x: number, y: number) {

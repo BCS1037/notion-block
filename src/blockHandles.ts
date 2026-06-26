@@ -18,6 +18,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     hideTimeout: number | null = null;
     dragManager: DragManager | null = null;
     ownerWindow: Window;
+    isMouseOverHandle = false;
 
     constructor(view: EditorView) {
         this.ownerWindow = view.dom.ownerDocument.defaultView ?? activeWindow;
@@ -40,6 +41,19 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             attr: { "aria-label": "Drag to reorder" } 
         });
         setIcon(this.dragButton, "grip-vertical");
+        
+        // Track mouse hover state explicitly to bypass cross-window :hover matching issues
+        this.handleEl.addEventListener("mouseenter", () => {
+            this.isMouseOverHandle = true;
+            if (this.hideTimeout) {
+                this.ownerWindow.clearTimeout(this.hideTimeout);
+                this.hideTimeout = null;
+            }
+        });
+        this.handleEl.addEventListener("mouseleave", () => {
+            this.isMouseOverHandle = false;
+            this.handleMouseLeave();
+        });
 
         // Drag & Menu Logic
         let dragTimeout: number | null = null;
@@ -215,8 +229,8 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         if (this.hideTimeout) this.ownerWindow.clearTimeout(this.hideTimeout);
         
         this.hideTimeout = this.ownerWindow.setTimeout(() => {
-            // Check if mouse is actually over the handle before hiding
-            if (this.handleEl?.matches(":hover")) {
+            // Check if mouse is actually over the handle or we are still hovering
+            if (this.isMouseOverHandle || this.handleEl?.matches(":hover")) {
                 return;
             }
             this.hoveredLine = null;
