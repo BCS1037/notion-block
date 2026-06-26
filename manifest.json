@@ -2,7 +2,7 @@
 	"id": "notion-block",
 	"name": "Notion block",
 	"version": "1.3.0",
-	"minAppVersion": "1.4.0",
+	"minAppVersion": "1.5.7",
 	"description": "Notion-like block interactions for Live Preview.",
 	"author": "BCS",
 	"authorUrl": "https://github.com/bcs",
