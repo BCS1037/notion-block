@@ -2,6 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { moment, Notice } from "obsidian";
 import type { TFile } from "obsidian";
 import NotionBlock from "./main";
+import { t } from "./locale/helpers";
 
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"]);
 
@@ -31,7 +32,7 @@ export function stripPrefix(lineText: string): string {
 export async function insertImageFiles(plugin: NotionBlock, view: EditorView, lineNo: number, files: File[]): Promise<void> {
     const imageFiles = files.filter(isImageFile);
     if (imageFiles.length === 0) {
-        new Notice("请选择图片文件。");
+        new Notice(t("notice.selectImage"));
         return;
     }
 
@@ -48,7 +49,7 @@ export async function insertImageFiles(plugin: NotionBlock, view: EditorView, li
 
         insertTextAtLineEnd(view, lineNo, links.join("\n"), true);
     } catch {
-        new Notice("插入图片失败。");
+        new Notice(t("notice.insertImageFailed"));
     }
 }
 
@@ -163,10 +164,14 @@ export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: numbe
             case "yesterday": insertText = moment().subtract(1, 'days').format(settings.dateFormat); break;
             case "tomorrow": insertText = moment().add(1, 'days').format(settings.dateFormat); break;
             case "time": insertText = moment().format(settings.timeFormat); break;
-            case "table": 
-                insertText = "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |";
-                cursorOffset = 23; // End of first cell
+            case "table": {
+                const col1 = `${t("table.column")} 1`;
+                const col2 = `${t("table.column")} 2`;
+                const col3 = `${t("table.column")} 3`;
+                insertText = `| ${col1} | ${col2} | ${col3} |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |`;
+                cursorOffset = 7 + col1.length + col2.length;
                 break;
+            }
             case "frontmatter": {
                 isMetadata = true;
                 const firstLine = view.state.doc.line(1);

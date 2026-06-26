@@ -2,6 +2,7 @@ import { setIcon } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import NotionBlock from "./main";
 import { insertBlock, insertImageFiles } from "./blockTransform";
+import { t } from "./locale/helpers";
 
 type InsertPage = "callout";
 type InsertAction = () => boolean | void;
@@ -146,7 +147,7 @@ class NotionBlockInsertMenu {
         const metaItems = this.getMetaItems();
         this.visibleItems = [...textItems, ...insertItems, ...metaItems];
 
-        this.renderSection("新增", textItems);
+        this.renderSection(t("menu.insert"), textItems);
         this.renderSeparator();
         this.renderSection("", insertItems);
         this.renderSeparator();
@@ -156,27 +157,27 @@ class NotionBlockInsertMenu {
 
     private getTextItems(): InsertItem[] {
         return [
-            { id: "code", label: "代码块", icon: "code", action: () => this.insert("code") },
-            { id: "math", label: "数学块", icon: "sigma", action: () => this.insert("math") },
-            { id: "callout", label: "Callout", icon: this.getCalloutIcon("note"), page: "callout" },
+            { id: "code", label: t("menu.code"), icon: "code", action: () => this.insert("code") },
+            { id: "math", label: t("menu.math"), icon: "sigma", action: () => this.insert("math") },
+            { id: "callout", label: t("menu.callout"), icon: this.getCalloutIcon("note"), page: "callout" },
         ];
     }
 
     private getInlineItems(): InsertItem[] {
         return [
-            { id: "link", label: "内部链接", icon: "link", action: () => this.insert("link") },
-            { id: "ext-link", label: "外部链接", icon: "link-2", action: () => this.insert("ext-link") },
-            { id: "image", label: "插入图片", icon: "image", action: () => this.openImagePicker() },
-            { id: "table", label: "表格", icon: "table", action: () => this.insert("table") },
+            { id: "link", label: t("menu.link"), icon: "link", action: () => this.insert("link") },
+            { id: "ext-link", label: t("menu.extLink"), icon: "link-2", action: () => this.insert("ext-link") },
+            { id: "image", label: t("menu.image"), icon: "image", action: () => this.openImagePicker() },
+            { id: "table", label: t("menu.table"), icon: "table", action: () => this.insert("table") },
         ];
     }
 
     private getMetaItems(): InsertItem[] {
         return [
-            { id: "today", label: "今天", icon: "calendar", action: () => this.insert("today") },
-            { id: "time", label: "当前时间", icon: "clock", action: () => this.insert("time") },
-            { id: "footnote", label: "脚注", icon: "hash", action: () => this.insert("footnote") },
-            { id: "comment", label: "注释", icon: "message-square", action: () => this.insert("comment") },
+            { id: "today", label: t("menu.today"), icon: "calendar", action: () => this.insert("today") },
+            { id: "time", label: t("menu.time"), icon: "clock", action: () => this.insert("time") },
+            { id: "footnote", label: t("menu.footnote"), icon: "hash", action: () => this.insert("footnote") },
+            { id: "comment", label: t("menu.comment"), icon: "message-square", action: () => this.insert("comment") },
         ];
     }
 
@@ -220,18 +221,19 @@ class NotionBlockInsertMenu {
         this.submenuEl?.remove();
         this.submenuEl = this.ownerDocument.body.createDiv({ cls: `wk-nb-action-menu wk-nb-action-submenu is-${page}` });
         this.submenuEl.setAttribute("role", "menu");
-        this.renderFloatingSection(this.submenuEl, "Callout", this.getCalloutItems());
+        this.renderFloatingSection(this.submenuEl, t("menu.callout"), this.getCalloutItems());
         this.positionFloatingSubmenu();
     }
 
     private getCalloutItems(): InsertItem[] {
         return CALLOUT_OPTIONS.map((option): InsertItem => ({
             id: `callout-${option.type}`,
-            label: option.label,
+            label: t(`callout.${option.type}`),
             icon: this.getCalloutIcon(option.type),
             action: () => this.insert(`callout-${option.type}`)
         }));
     }
+
 
     private renderFloatingSection(container: HTMLElement, title: string, items: InsertItem[]): void {
         container.createDiv({ cls: "wk-nb-action-menu-section", text: title });

@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import NotionBlock from './main';
+import { t } from './locale/helpers';
 
 export interface BlockPluginSettings {
     enabled: boolean;
@@ -33,8 +34,8 @@ export class BlockPluginSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         new Setting(containerEl)
-            .setName('Enable plugin')
-            .setDesc('Enable or disable the block plugin.')
+            .setName(t('settings.enablePlugin.name'))
+            .setDesc(t('settings.enablePlugin.desc'))
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.enabled)
                 .onChange(async (value) => {
@@ -43,11 +44,11 @@ export class BlockPluginSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Drag granularity')
-            .setDesc('Switch between line mode and paragraph mode.')
+            .setName(t('settings.dragGranularity.name'))
+            .setDesc(t('settings.dragGranularity.desc'))
             .addDropdown(dropdown => dropdown
-                .addOption('line', 'Line mode')
-                .addOption('paragraph', 'Paragraph mode')
+                .addOption('line', t('settings.dragGranularity.line'))
+                .addOption('paragraph', t('settings.dragGranularity.paragraph'))
                 .setValue(this.plugin.settings.dragGranularity)
                 .onChange(async (value: 'line' | 'paragraph') => {
                     this.plugin.settings.dragGranularity = value;
@@ -55,8 +56,8 @@ export class BlockPluginSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Button hover delay')
-            .setDesc('Delay (ms) before showing handles.')
+            .setName(t('settings.hoverDelay.name'))
+            .setDesc(t('settings.hoverDelay.desc'))
             .addSlider(slider => slider
                 .setLimits(0, 500, 50)
                 .setValue(this.plugin.settings.hoverDelay)
@@ -67,8 +68,8 @@ export class BlockPluginSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Button hide delay')
-            .setDesc('Delay (ms) before hiding handles.')
+            .setName(t('settings.hideDelay.name'))
+            .setDesc(t('settings.hideDelay.desc'))
             .addSlider(slider => slider
                 .setLimits(0, 1000, 50)
                 .setValue(this.plugin.settings.hideDelay)
@@ -79,8 +80,8 @@ export class BlockPluginSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Date format')
-            .setDesc('Format for today/yesterday/tomorrow.')
+            .setName(t('settings.dateFormat.name'))
+            .setDesc(t('settings.dateFormat.desc'))
             .addText(text => text
                 .setPlaceholder('YYYY-MM-DD')
                 .setValue(this.plugin.settings.dateFormat)
@@ -90,8 +91,8 @@ export class BlockPluginSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Time format')
-            .setDesc('Format for current time.')
+            .setName(t('settings.timeFormat.name'))
+            .setDesc(t('settings.timeFormat.desc'))
             .addText(text => text
                 .setPlaceholder('HH:mm')
                 .setValue(this.plugin.settings.timeFormat)
@@ -101,3 +102,4 @@ export class BlockPluginSettingTab extends PluginSettingTab {
                 }));
     }
 }
+

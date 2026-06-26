@@ -2,6 +2,7 @@ import { Notice, setIcon } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import NotionBlock from "./main";
 import { transformLine } from "./blockTransform";
+import { t } from "./locale/helpers";
 
 type MenuPage = "color" | "callout";
 type MenuAction = () => void | Promise<void>;
@@ -180,7 +181,7 @@ class NotionBlockActionMenu {
         const blockItems = this.getBlockActionItems();
         this.visibleItems = [...transformItems, ...colorItems, ...blockItems];
 
-        this.renderSection("转换成", transformItems);
+        this.renderSection(t("menu.turnInto"), transformItems);
         this.renderSeparator();
         this.renderSection("", colorItems);
         this.renderSeparator();
@@ -190,38 +191,38 @@ class NotionBlockActionMenu {
 
     private getTurnIntoItems(): ActionItem[] {
         return [
-            { id: "paragraph", label: "文本", icon: "text", action: () => this.runTransform("paragraph") },
-            { id: "h1", label: "标题 1", icon: "heading1", action: () => this.runTransform("h1") },
-            { id: "h2", label: "标题 2", icon: "heading2", action: () => this.runTransform("h2") },
-            { id: "h3", label: "标题 3", icon: "heading3", action: () => this.runTransform("h3") },
-            { id: "todo", label: "待办列表", icon: "check-square", action: () => this.runTransform("todo") },
-            { id: "bullet", label: "无序列表", icon: "list", action: () => this.runTransform("bullet") },
-            { id: "numbered", label: "有序列表", icon: "list-ordered", action: () => this.runTransform("numbered") },
-            { id: "blockquote", label: "引用", icon: "quote", action: () => this.runTransform("blockquote") },
-            { id: "code", label: "代码块", icon: "code", action: () => this.runTransform("code") },
-            { id: "math", label: "数学块", icon: "sigma", action: () => this.runTransform("math") },
-            { id: "divider", label: "分割线", icon: "minus", action: () => this.runTransform("divider") },
-            { id: "callout", label: "Callout", icon: this.getCurrentCalloutIcon(), page: "callout" },
+            { id: "paragraph", label: t("menu.paragraph"), icon: "text", action: () => this.runTransform("paragraph") },
+            { id: "h1", label: t("menu.h1"), icon: "heading1", action: () => this.runTransform("h1") },
+            { id: "h2", label: t("menu.h2"), icon: "heading2", action: () => this.runTransform("h2") },
+            { id: "h3", label: t("menu.h3"), icon: "heading3", action: () => this.runTransform("h3") },
+            { id: "todo", label: t("menu.todo"), icon: "check-square", action: () => this.runTransform("todo") },
+            { id: "bullet", label: t("menu.bullet"), icon: "list", action: () => this.runTransform("bullet") },
+            { id: "numbered", label: t("menu.numbered"), icon: "list-ordered", action: () => this.runTransform("numbered") },
+            { id: "blockquote", label: t("menu.blockquote"), icon: "quote", action: () => this.runTransform("blockquote") },
+            { id: "code", label: t("menu.code"), icon: "code", action: () => this.runTransform("code") },
+            { id: "math", label: t("menu.math"), icon: "sigma", action: () => this.runTransform("math") },
+            { id: "divider", label: t("menu.divider"), icon: "minus", action: () => this.runTransform("divider") },
+            { id: "callout", label: t("menu.callout"), icon: this.getCurrentCalloutIcon(), page: "callout" },
         ];
     }
 
     private getColorEntryItems(): ActionItem[] {
         return [
-            { id: "color", label: "颜色", icon: "paint-roller", page: "color" },
+            { id: "color", label: t("menu.color"), icon: "paint-roller", page: "color" },
         ];
     }
 
     private getBlockActionItems(): ActionItem[] {
         return [
-            { id: "copy-link", label: "拷贝区块链接", icon: "link", shortcut: "⌘⌃L", action: () => this.copyBlockLink() },
-            { id: "delete", label: "删除", icon: "trash-2", shortcut: "Del", action: () => this.deleteLine() },
+            { id: "copy-link", label: t("menu.copyLink"), icon: "link", shortcut: "⌘⌃L", action: () => this.copyBlockLink() },
+            { id: "delete", label: t("menu.delete"), icon: "trash-2", shortcut: "Del", action: () => this.deleteLine() },
         ];
     }
 
     private getTextColorItems(): ActionItem[] {
         return TEXT_COLORS.map((color): ActionItem => ({
             id: `text-${color.id}`,
-            label: color.label,
+            label: t(`color.text${color.id.charAt(0).toUpperCase() + color.id.slice(1)}`),
             icon: "letter-text",
             action: () => this.applyTextColor(color)
         }));
@@ -230,7 +231,7 @@ class NotionBlockActionMenu {
     private getBackgroundColorItems(): ActionItem[] {
         return BACKGROUND_COLORS.map((color): ActionItem => ({
             id: `bg-${color.id}`,
-            label: color.label,
+            label: t(`color.bg${color.id.charAt(0).toUpperCase() + color.id.slice(1)}`),
             icon: "paint-bucket",
             action: () => this.applyBackgroundColor(color)
         }));
@@ -239,7 +240,7 @@ class NotionBlockActionMenu {
     private getCalloutItems(): ActionItem[] {
         return CALLOUT_OPTIONS.map((option): ActionItem => ({
             id: `callout-${option.type}`,
-            label: option.label,
+            label: t(`callout.${option.type}`),
             icon: this.getCalloutIcon(option.type),
             action: () => this.runTransform(`callout-${option.type}`)
         }));
@@ -298,11 +299,11 @@ class NotionBlockActionMenu {
         this.submenuEl.setAttribute("role", "menu");
 
         if (page === "color") {
-            this.renderFloatingSection(this.submenuEl, "文本颜色", this.getTextColorItems(), TEXT_COLORS);
+            this.renderFloatingSection(this.submenuEl, t("menu.textColor"), this.getTextColorItems(), TEXT_COLORS);
             this.submenuEl.createDiv({ cls: "wk-nb-action-menu-separator" });
-            this.renderFloatingSection(this.submenuEl, "背景颜色", this.getBackgroundColorItems(), BACKGROUND_COLORS);
+            this.renderFloatingSection(this.submenuEl, t("menu.backgroundColor"), this.getBackgroundColorItems(), BACKGROUND_COLORS);
         } else {
-            this.renderFloatingSection(this.submenuEl, "Callout", this.getCalloutItems());
+            this.renderFloatingSection(this.submenuEl, t("menu.callout"), this.getCalloutItems());
         }
         this.positionFloatingSubmenu();
     }
@@ -416,7 +417,7 @@ class NotionBlockActionMenu {
     private async copyBlockLink(): Promise<void> {
         const file = this.plugin.app.workspace.getActiveFile();
         if (!file) {
-            new Notice("没有活动笔记");
+            new Notice(t("notice.noActiveNote"));
             return;
         }
         const line = this.view.state.doc.line(this.lineNo);
@@ -431,11 +432,12 @@ class NotionBlockActionMenu {
         const link = `[[${file.basename}#^${blockId}]]`;
         try {
             await this.ownerWindow.navigator.clipboard.writeText(link);
-            new Notice("已复制区块链接");
+            new Notice(t("notice.linkCopied"));
         } catch {
-            new Notice("复制区块链接失败");
+            new Notice(t("notice.linkCopyFailed"));
         }
     }
+
 
     private applyTextColor(color: ColorOption): void {
         this.wrapLineContent(color.value ? "span" : "", color.value ? `color: ${color.value};` : "");

@@ -8,6 +8,7 @@ import NotionBlock from "./main";
 import { closeNotionBlockActionMenus, showNotionBlockActionMenu } from "./notionActionMenu";
 import { closeNotionBlockInsertMenus, showNotionBlockInsertMenu } from "./notionInsertMenu";
 import { DragManager } from "./dragDrop";
+import { t } from "./locale/helpers";
 
 export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromClass(class {
     handleEl: HTMLElement | null = null;
@@ -32,13 +33,13 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         
         this.addButton = this.handleEl.createDiv({ 
             cls: "block-handle-button add-button", 
-            attr: { "aria-label": "Add block below" } 
+            attr: { "aria-label": t("handles.addBlock") } 
         });
         setIcon(this.addButton, "plus");
         
         this.dragButton = this.handleEl.createDiv({ 
             cls: "block-handle-button drag-button", 
-            attr: { "aria-label": "Drag to reorder" } 
+            attr: { "aria-label": t("handles.dragReorder") } 
         });
         setIcon(this.dragButton, "grip-vertical");
         
@@ -95,7 +96,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         this.dragButton.oncontextmenu = (e) => {
             const menu = new Menu();
             menu.addItem(item => {
-                item.setTitle(plugin.settings.dragGranularity === "line" ? "Switch to paragraph mode" : "Switch to line mode")
+                item.setTitle(plugin.settings.dragGranularity === "line" ? t("handles.switchToParagraph") : t("handles.switchToLine"))
                     .setIcon("layers")
                     .onClick(async () => {
                         plugin.settings.dragGranularity = plugin.settings.dragGranularity === "line" ? "paragraph" : "line";
