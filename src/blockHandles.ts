@@ -3,12 +3,15 @@ import {
     ViewPlugin, 
     ViewUpdate
 } from "@codemirror/view";
-import { setIcon, Menu } from "obsidian";
+import { setIcon, Menu, Platform } from "obsidian";
 import NotionBlock from "./main";
 import { closeNotionBlockActionMenus, showNotionBlockActionMenu } from "./notionActionMenu";
 import { closeNotionBlockInsertMenus, showNotionBlockInsertMenu } from "./notionInsertMenu";
 import { DragManager } from "./dragDrop";
 import { t } from "./locale/helpers";
+
+const DESKTOP_DRAG_DELAY_MS = 150;
+const MOBILE_DRAG_DELAY_MS = 300;
 
 export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromClass(class {
     handleEl: HTMLElement | null = null;
@@ -20,6 +23,8 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     dragManager: DragManager | null = null;
     ownerWindow: Window;
     isMouseOverHandle = false;
+    editorDom: HTMLElement | null = null;
+    editorPointerDown: ((event: PointerEvent) => void) | null = null;
 
     constructor(view: EditorView) {
         this.ownerWindow = view.dom.ownerDocument.defaultView ?? activeWindow;
@@ -27,9 +32,13 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     }
 
     createHandle(view: EditorView) {
-        // Create handle directly as child of scrollDOM (not activeDocument which throws HierarchyRequestError)
+        // 直接挂到 scrollDOM，避免跨窗口 Document 根节点追加导致 HierarchyRequestError。
         this.handleEl = view.scrollDOM.createDiv();
         this.handleEl.className = "block-handle-wrap is-hidden";
+        this.handleEl.classList.toggle("is-mobile", this.isMobileView());
+        this.editorDom = view.dom;
+        this.editorPointerDown = (event: PointerEvent) => this.handlePointerDown(view, event);
+        this.editorDom.addEventListener("pointerdown", this.editorPointerDown);
         
         this.addButton = this.handleEl.createDiv({ 
             cls: "block-handle-button add-button", 
@@ -43,7 +52,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         });
         setIcon(this.dragButton, "grip-vertical");
         
-        // Track mouse hover state explicitly to bypass cross-window :hover matching issues
+        // 显式记录悬停状态，避开弹出窗口中 :hover 判断不稳定的问题。
         this.handleEl.addEventListener("mouseenter", () => {
             this.isMouseOverHandle = true;
             if (this.hideTimeout) {
@@ -56,12 +65,31 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             this.handleMouseLeave();
         });
 
-        // Drag & Menu Logic
+        // ⠿ 短按打开菜单，长按进入拖拽。
         let dragTimeout: number | null = null;
         let isDragging = false;
+        let suppressClick = false;
 
-        this.dragButton.onmousedown = (e) => {
+        const clearDragTimeout = () => {
+            if (dragTimeout !== null) {
+                this.ownerWindow.clearTimeout(dragTimeout);
+                dragTimeout = null;
+            }
+        };
+
+        const openActionMenu = () => {
+            if (this.hoveredLine === null || !this.dragButton) return;
+            const rect = this.dragButton.getBoundingClientRect();
+            closeNotionBlockInsertMenus();
+            showNotionBlockActionMenu(plugin, view, this.hoveredLine, {
+                x: rect.left,
+                y: rect.bottom
+            });
+        };
+
+        this.dragButton.onpointerdown = (e) => {
             if (this.hoveredLine === null) return;
+            if (e.pointerType === "mouse" && e.button !== 0) return;
             if (this.hideTimeout) {
                 this.ownerWindow.clearTimeout(this.hideTimeout);
                 this.hideTimeout = null;
@@ -70,28 +98,39 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             e.stopPropagation();
             
             isDragging = false;
+            suppressClick = false;
+            const dragDelay = this.isMobilePointer(e) ? MOBILE_DRAG_DELAY_MS : DESKTOP_DRAG_DELAY_MS;
             dragTimeout = this.ownerWindow.setTimeout(() => {
                 isDragging = true;
+                suppressClick = true;
                 if (!this.dragManager) {
                     this.dragManager = new DragManager(plugin, view);
                 }
-                this.dragManager.startDrag(this.hoveredLine!, e);
-            }, 150);
+                this.dragManager.startDrag(this.hoveredLine!, e, this.dragButton);
+            }, dragDelay);
         };
 
-        this.dragButton.onmouseup = (_e: MouseEvent) => {
-            if (dragTimeout !== null) this.ownerWindow.clearTimeout(dragTimeout);
-            if (!isDragging && this.hoveredLine !== null) {
-                const rect = this.dragButton!.getBoundingClientRect();
-                closeNotionBlockInsertMenus();
-                showNotionBlockActionMenu(plugin, view, this.hoveredLine, {
-                    x: rect.left,
-                    y: rect.bottom
-                });
+        this.dragButton.onpointerup = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearDragTimeout();
+            if (!isDragging) {
+                openActionMenu();
             }
         };
 
-        this.dragButton.onclick = (e) => e.stopPropagation();
+        this.dragButton.onpointercancel = (e) => {
+            e.stopPropagation();
+            clearDragTimeout();
+        };
+
+        this.dragButton.onclick = (e) => {
+            if (suppressClick) {
+                e.preventDefault();
+            }
+            e.stopPropagation();
+            suppressClick = false;
+        };
 
         this.dragButton.oncontextmenu = (e) => {
             const menu = new Menu();
@@ -118,8 +157,6 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             const rect = this.addButton!.getBoundingClientRect();
             const pos = { x: rect.left, y: rect.bottom };
 
-            // Just show the menu for the current line. 
-            // insertBlock will handle creating a new line if the current one isn't empty.
             closeNotionBlockActionMenus();
             showNotionBlockInsertMenu(plugin, view, this.hoveredLine, pos);
         };
@@ -127,7 +164,11 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     }
 
     update(update: ViewUpdate) {
-        // Only update position on viewport changes or document changes if handle is visible
+        if (update.selectionSet && this.isMobileView() && this.hoveredLine !== null) {
+            this.revealHandleAtSelection(update.view);
+            return;
+        }
+
         if ((update.docChanged || update.viewportChanged) && this.hoveredLine !== null) {
             this.updatePosition(update.view);
         }
@@ -139,25 +180,19 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         try {
             const line = view.state.doc.line(this.hoveredLine);
             
-            // Get accurate screen coordinates of the line
+            // 获取当前行的屏幕坐标。
             const coords = view.coordsAtPos(line.from);
             if (!coords) return;
             
             const scrollerRect = view.scrollDOM.getBoundingClientRect();
             
-            // Calculate top relative to scrollDOM
-            // (coords.top - scrollerRect.top) is the viewport-relative offset
-            // We add scrollDOM.scrollTop because handleEl is a child of scrollDOM
             let top = (coords.top - scrollerRect.top) + view.scrollDOM.scrollTop;
             
-            // Centering logic:
-            // Adjust to the vertical center of the first visual line
             const lineHeight = coords.bottom - coords.top;
             const handleHeight = this.handleEl.offsetHeight || 24;
             top += (lineHeight - handleHeight) / 2;
             
-            // Calculate left position based on contentDOM offset
-            const left = view.contentDOM.offsetLeft - 52; 
+            const left = this.getHandleLeft(view);
             
             this.handleEl.style.transform = `translate3d(${left}px, ${Math.round(top)}px, 0)`;
         } catch {
@@ -170,7 +205,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
 
-        // Detection range check - Expand left range to accommodate the handle
+        // 扩大左侧检测范围，覆盖句柄所在区域。
         if (x < -100 || x > rect.width + 100 || y < 0 || y > rect.height) {
             this.handleMouseLeave();
             return;
@@ -183,46 +218,32 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             }
             if (this.handleEl?.classList.contains("is-hidden")) {
                 this.handleEl.classList.remove("is-hidden");
-                // If it was fully nullified, try to recover the line from current Y
                 if (this.hoveredLine === null) {
-                    const contentRect = view.contentDOM.getBoundingClientRect();
-                    const targetX = contentRect.left + 5; 
-                    const pos = view.posAtCoords({ x: targetX, y: event.clientY });
-                    if (pos !== null) {
-                        try {
-                            this.hoveredLine = view.state.doc.lineAt(pos).number;
-                        } catch {
-                            /* position may be invalid during document changes */
-                        }
-                    }
+                    this.hoveredLine = this.getLineAtClientY(view, event.clientY);
                 }
                 this.updatePosition(view);
             }
             return;
         }
 
-        // Use a fixed X point inside content to find the line at current Y
-        const contentRect = view.contentDOM.getBoundingClientRect();
-        const targetX = contentRect.left + 5; 
-        const pos = view.posAtCoords({ x: targetX, y: event.clientY });
-        
-        if (pos === null) return;
+        const lineNo = this.getLineAtClientY(view, event.clientY);
+        if (lineNo !== null && this.hoveredLine !== lineNo) {
+            this.revealHandleAtLine(view, lineNo);
+        }
+    }
 
-        try {
-            const line = view.state.doc.lineAt(pos);
-            // CRITICAL: Only update if the logical line has actually changed
-            if (this.hoveredLine !== line.number) {
-                this.hoveredLine = line.number;
-                this.handleEl?.classList.remove("is-hidden");
-                this.updatePosition(view);
-            }
-
-            if (this.hideTimeout) {
-                this.ownerWindow.clearTimeout(this.hideTimeout);
-                this.hideTimeout = null;
-            }
-        } catch {
-            // Document might be changing
+    handlePointerDown(view: EditorView, event: PointerEvent) {
+        if (!this.shouldActivateFromPointer(event)) return;
+        const target = event.target;
+        if (!(target instanceof this.ownerWindow.HTMLElement)) return;
+        if (target.closest(".block-handle-wrap") || target.closest(".wk-nb-action-menu")) return;
+        const rect = view.dom.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+            return;
+        }
+        const lineNo = this.getLineAtClientPoint(view, event.clientX, event.clientY);
+        if (lineNo !== null) {
+            this.revealHandleAtLine(view, lineNo, true);
         }
     }
 
@@ -230,8 +251,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         if (this.hideTimeout) this.ownerWindow.clearTimeout(this.hideTimeout);
         
         this.hideTimeout = this.ownerWindow.setTimeout(() => {
-            // Check if mouse is actually over the handle or we are still hovering
-            if (this.isMouseOverHandle || this.handleEl?.matches(":hover")) {
+            if (this.isMouseOverHandle) {
                 return;
             }
             this.hoveredLine = null;
@@ -253,9 +273,75 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     destroy() {
         closeNotionBlockActionMenus();
         closeNotionBlockInsertMenus();
+        if (this.editorDom && this.editorPointerDown) {
+            this.editorDom.removeEventListener("pointerdown", this.editorPointerDown);
+        }
         if (this.handleEl) {
             this.handleEl.remove();
         }
+    }
+
+    getHandleLeft(view: EditorView): number {
+        if (!this.isMobileView()) {
+            return view.contentDOM.offsetLeft - 52;
+        }
+        const handleWidth = this.handleEl?.offsetWidth || 52;
+        const preferredLeft = view.contentDOM.offsetLeft - handleWidth - 6;
+        return Math.max(4, preferredLeft);
+    }
+
+    getLineAtClientY(view: EditorView, clientY: number): number | null {
+        const contentRect = view.contentDOM.getBoundingClientRect();
+        return this.getLineAtClientPoint(view, contentRect.left + 5, clientY);
+    }
+
+    getLineAtClientPoint(view: EditorView, clientX: number, clientY: number): number | null {
+        const contentRect = view.contentDOM.getBoundingClientRect();
+        const clampedX = Math.min(Math.max(clientX, contentRect.left + 1), contentRect.right - 1);
+        const candidateXs = [clampedX, contentRect.left + 5, contentRect.left + contentRect.width / 2];
+        for (const targetX of candidateXs) {
+            const pos = view.posAtCoords({ x: targetX, y: clientY });
+            if (pos === null) continue;
+            try {
+                return view.state.doc.lineAt(pos).number;
+            } catch {
+                /* 文档更新时坐标可能暂时失效。 */
+            }
+        }
+        return null;
+    }
+
+    revealHandleAtSelection(view: EditorView): void {
+        try {
+            const lineNo = view.state.doc.lineAt(view.state.selection.main.head).number;
+            this.revealHandleAtLine(view, lineNo);
+        } catch {
+            /* 选区更新期间行号可能暂时不可用。 */
+        }
+    }
+
+    revealHandleAtLine(view: EditorView, lineNo: number, forceMobile = false): void {
+        this.hoveredLine = lineNo;
+        this.handleEl?.classList.remove("is-hidden");
+        this.handleEl?.classList.toggle("is-mobile", forceMobile || this.isMobileView());
+        this.updatePosition(view);
+        if (this.hideTimeout) {
+            this.ownerWindow.clearTimeout(this.hideTimeout);
+            this.hideTimeout = null;
+        }
+    }
+
+    isMobileView(): boolean {
+        return Platform.isMobile || this.ownerWindow.matchMedia("(pointer: coarse)").matches;
+    }
+
+    isMobilePointer(event: PointerEvent): boolean {
+        return this.isMobileView() || event.pointerType === "touch" || event.pointerType === "pen";
+    }
+
+    shouldActivateFromPointer(event: PointerEvent): boolean {
+        if (event.pointerType === "mouse") return false;
+        return this.isMobilePointer(event);
     }
 }, {
     eventHandlers: {

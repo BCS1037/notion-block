@@ -216,6 +216,12 @@ class NotionBlockActionMenu {
         return [
             { id: "copy-link", label: t("menu.copyLink"), icon: "link", shortcut: "⌘⌃L", action: () => this.copyBlockLink() },
             { id: "delete", label: t("menu.delete"), icon: "trash-2", shortcut: "Del", action: () => this.deleteLine() },
+            {
+                id: "toggle-drag-granularity",
+                label: this.plugin.settings.dragGranularity === "line" ? t("handles.switchToParagraph") : t("handles.switchToLine"),
+                icon: "layers",
+                action: () => this.toggleDragGranularity()
+            },
         ];
     }
 
@@ -436,6 +442,11 @@ class NotionBlockActionMenu {
         } catch {
             new Notice(t("notice.linkCopyFailed"));
         }
+    }
+
+    private async toggleDragGranularity(): Promise<void> {
+        this.plugin.settings.dragGranularity = this.plugin.settings.dragGranularity === "line" ? "paragraph" : "line";
+        await this.plugin.saveSettings();
     }
 
 

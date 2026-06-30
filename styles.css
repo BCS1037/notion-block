@@ -5,7 +5,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    height: 24px; /* Fixed height for better centering calculation */
+    height: 24px;
     z-index: 10;
     pointer-events: all;
     background-color: transparent;
@@ -26,7 +26,12 @@
     border-radius: 4px;
     color: #aea9a3;
     cursor: pointer;
+    touch-action: manipulation;
     transition: background-color 0.1s ease, color 0.1s ease, transform 0.1s ease;
+}
+
+.block-handle-button.drag-button {
+    touch-action: none;
 }
 
 .block-handle-button:hover {
@@ -203,10 +208,64 @@
     background: rgba(var(--color-red-rgb), 0.14);
 }
 
-/* Hide handles on mobile */
-@media (max-width: 768px) {
+/* 移动端保留句柄并增大触控面积 */
+.block-handle-wrap.is-mobile,
+body.is-mobile .block-handle-wrap {
+    gap: 6px;
+    height: 36px;
+    z-index: 100;
+    border-radius: 6px;
+    background-color: var(--background-primary);
+    box-shadow: var(--shadow-s);
+}
+
+.block-handle-wrap.is-mobile .block-handle-button,
+body.is-mobile .block-handle-button {
+    width: 34px;
+    height: 34px;
+}
+
+.block-handle-wrap.is-mobile .block-handle-button svg,
+body.is-mobile .block-handle-button svg {
+    width: 18px;
+    height: 18px;
+}
+
+.block-handle-wrap.is-mobile .block-handle-button:hover,
+body.is-mobile .block-handle-button:hover {
+    transform: none;
+}
+
+body.is-mobile .wk-nb-action-menu {
+    max-width: calc(100vw - 16px);
+}
+
+@media (max-width: 768px), (pointer: coarse) {
     .block-handle-wrap {
-        display: none;
+        gap: 6px;
+        height: 36px;
+        z-index: 100;
+        border-radius: 6px;
+        background-color: var(--background-primary);
+        box-shadow: var(--shadow-s);
+    }
+
+    .block-handle-button {
+        width: 34px;
+        height: 34px;
+    }
+
+    .block-handle-button svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .block-handle-button:hover {
+        transform: none;
+    }
+
+    .wk-nb-action-menu {
+        max-width: calc(100vw - 16px);
     }
 }
 

@@ -1,6 +1,11 @@
 import { EditorView } from "@codemirror/view";
 import NotionBlock from "./main";
 
+interface DragPoint {
+    clientX: number;
+    clientY: number;
+}
+
 export class DragManager {
     private ghostEl: HTMLElement | null = null;
     private indicatorEl: HTMLElement | null = null;
@@ -9,23 +14,25 @@ export class DragManager {
     private currentTargetLine: number | null = null;
     private ownerDocument: Document;
     private ownerWindow: Window;
+    private activePointerId: number | null = null;
+    private pointerCaptureEl: Element | null = null;
 
     constructor(private plugin: NotionBlock, private view: EditorView) {
         this.ownerDocument = view.dom.ownerDocument;
         this.ownerWindow = this.ownerDocument.defaultView ?? activeWindow;
     }
 
-    startDrag(lineNo: number, event: MouseEvent) {
+    startDrag(lineNo: number, event: MouseEvent | PointerEvent, captureEl?: Element | null) {
         this.isDragging = true;
         
-        // Clear any existing selection
+        // 清理现有选区，避免拖拽时触发文本选择。
         this.ownerWindow.getSelection()?.removeAllRanges();
         
         const doc = this.view.state.doc;
         let fromPos, toPos, text;
 
         if (this.plugin.settings.dragGranularity === "paragraph") {
-            // Find paragraph boundaries
+            // 按空行寻找段落边界。
             let startLine = lineNo;
             while (startLine > 1 && doc.line(startLine - 1).text.trim() !== "") {
                 startLine--;
@@ -49,38 +56,67 @@ export class DragManager {
 
         this.startBlock = { from: fromPos, to: toPos, text: text };
 
-        // Create ghost element
+        // 创建拖拽幽灵块。
         this.ghostEl = this.ownerDocument.body.createDiv({
             cls: "block-drag-ghost",
             text: text.slice(0, 50) + (text.length > 50 ? "..." : "")
         });
         this.updateGhostPosition(event.clientX, event.clientY);
 
-        // Create indicator line
+        // 创建插入指示线。
         this.indicatorEl = this.ownerDocument.body.createDiv({
             cls: "block-drag-indicator"
         });
 
-        this.ownerDocument.addEventListener("mousemove", this.onMouseMove);
-        this.ownerDocument.addEventListener("mouseup", this.onMouseUp);
+        if (this.isPointerEvent(event)) {
+            this.activePointerId = event.pointerId;
+            this.capturePointer(event, captureEl);
+            this.ownerDocument.addEventListener("pointermove", this.onPointerMove);
+            this.ownerDocument.addEventListener("pointerup", this.onPointerUp);
+            this.ownerDocument.addEventListener("pointercancel", this.onPointerCancel);
+        } else {
+            this.ownerDocument.addEventListener("mousemove", this.onMouseMove);
+            this.ownerDocument.addEventListener("mouseup", this.onMouseUp);
+        }
         
-        // Prevent text selection during drag
+        // 拖拽期间禁止选择文本。
         this.ownerDocument.body.addClass("is-dragging-block");
     }
 
     private onMouseMove = (event: MouseEvent) => {
         if (!this.isDragging) return;
-
-        this.updateGhostPosition(event.clientX, event.clientY);
-
-        const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
-        if (pos !== null) {
-            const line = this.view.state.doc.lineAt(pos);
-            this.updateIndicator(line.number, event.clientY);
-        }
+        this.handleMove(event);
     };
 
+    private onPointerMove = (event: PointerEvent) => {
+        if (!this.isDragging || !this.isActivePointer(event)) return;
+        event.preventDefault();
+        this.handleMove(event);
+    };
+
+    private handleMove(point: DragPoint): void {
+        this.updateGhostPosition(point.clientX, point.clientY);
+
+        const pos = this.view.posAtCoords({ x: point.clientX, y: point.clientY });
+        if (pos !== null) {
+            const line = this.view.state.doc.lineAt(pos);
+            this.updateIndicator(line.number, point.clientY);
+        }
+    }
+
     private onMouseUp = (_event: MouseEvent) => {
+        this.stopDrag();
+    };
+
+    private onPointerUp = (event: PointerEvent) => {
+        if (!this.isActivePointer(event)) return;
+        event.preventDefault();
+        this.stopDrag();
+    };
+
+    private onPointerCancel = (event: PointerEvent) => {
+        if (!this.isActivePointer(event)) return;
+        event.preventDefault();
         this.stopDrag();
     };
 
@@ -104,8 +140,12 @@ export class DragManager {
             this.indicatorEl = null;
         }
 
+        this.releasePointer();
         this.ownerDocument.removeEventListener("mousemove", this.onMouseMove);
         this.ownerDocument.removeEventListener("mouseup", this.onMouseUp);
+        this.ownerDocument.removeEventListener("pointermove", this.onPointerMove);
+        this.ownerDocument.removeEventListener("pointerup", this.onPointerUp);
+        this.ownerDocument.removeEventListener("pointercancel", this.onPointerCancel);
         this.ownerDocument.body.removeClass("is-dragging-block");
     }
 
@@ -126,7 +166,7 @@ export class DragManager {
             const coords = this.view.coordsAtPos(line.from);
             
             if (coords) {
-                // Use coordsAtPos for the end of line to determine full line height
+                // 用行尾坐标估算完整行高。
                 const endCoords = this.view.coordsAtPos(line.to);
                 
                 let top = coords.top;
@@ -154,7 +194,7 @@ export class DragManager {
                 });
             }
         } catch {
-            // Ignore if line doesn't exist
+            // 行不存在时忽略。
         }
     }
 
@@ -162,7 +202,7 @@ export class DragManager {
         const doc = this.view.state.doc;
         const textToMove = startBlock.text;
 
-        // Handle insertion at the end of the document
+        // 处理插入到文档末尾。
         if (toLineNo > doc.lines) {
             this.view.dispatch({
                 changes: [
@@ -177,21 +217,21 @@ export class DragManager {
 
         const toLine = doc.line(toLineNo);
 
-        // If dropping inside the same block, do nothing
+        // 丢回原区块内部时不处理。
         if (toLine.from >= startBlock.from && toLine.to <= startBlock.to) return;
         
         if (startBlock.from < toLine.from) {
-            // Moving down
+            // 向下移动。
             this.view.dispatch({
                 changes: [
-                    { from: toLine.from, insert: textToMove + "\n" }, // Insert before the target line
+                    { from: toLine.from, insert: textToMove + "\n" },
                     { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
                 ],
                 scrollIntoView: true,
                 userEvent: "move.block"
             });
         } else {
-            // Moving up
+            // 向上移动。
             this.view.dispatch({
                 changes: [
                     { from: toLine.from, insert: textToMove + "\n" },
@@ -201,5 +241,36 @@ export class DragManager {
                 userEvent: "move.block"
             });
         }
+    }
+
+    private isPointerEvent(event: MouseEvent | PointerEvent): event is PointerEvent {
+        return "pointerId" in event;
+    }
+
+    private isActivePointer(event: PointerEvent): boolean {
+        return this.activePointerId === null || event.pointerId === this.activePointerId;
+    }
+
+    private capturePointer(event: PointerEvent, captureEl?: Element | null): void {
+        const target = captureEl ?? event.currentTarget;
+        if (!(target instanceof this.ownerWindow.Element)) return;
+        try {
+            target.setPointerCapture(event.pointerId);
+            this.pointerCaptureEl = target;
+        } catch {
+            /* 某些移动端 WebView 不支持或会拒绝 pointer capture。 */
+        }
+    }
+
+    private releasePointer(): void {
+        if (this.pointerCaptureEl && this.activePointerId !== null) {
+            try {
+                this.pointerCaptureEl.releasePointerCapture(this.activePointerId);
+            } catch {
+                /* pointer 已结束时释放可能失败，可忽略。 */
+            }
+        }
+        this.pointerCaptureEl = null;
+        this.activePointerId = null;
     }
 }
