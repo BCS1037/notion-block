@@ -34,6 +34,9 @@ Bring Notion-like block interactions to Obsidian's Live Preview mode.
 2. Move the files to your vault's plugin folder: `<vault>/.obsidian/plugins/notion-block/`.
 3. Enable the plugin in Obsidian settings.
 
+## Support
+If this plugin helps you, consider supporting its development: [赞赏作者](https://ifdian.net/a/bcs1037)
+
 ## Security & Compliance
 This plugin strictly follows [Obsidian Developer Policies](https://docs.obsidian.md/Developer+policies). It avoids using `innerHTML` and ensures all DOM manipulations are safe and performant.
 
