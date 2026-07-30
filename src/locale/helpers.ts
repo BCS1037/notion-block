@@ -1,3 +1,4 @@
+import { getLanguage } from "obsidian";
 import en from "./lang/en";
 import zh from "./lang/zh";
 import zhTw from "./lang/zh-tw";
@@ -11,9 +12,11 @@ const localeMap: Record<string, Record<string, string>> = {
 };
 
 const getLocale = (): Record<string, string> => {
-    // Obsidian stores UI language in localStorage
-    const lang = window.localStorage?.getItem("language") || "en";
-    return localeMap[lang] || localeMap[lang.split("-")[0]] || en;
+    const detectedLanguage = typeof getLanguage === "function"
+        ? getLanguage()
+        : window.localStorage?.getItem("language") || "en";
+    const language = detectedLanguage.trim().toLowerCase();
+    return localeMap[language] || localeMap[language.split("-")[0]] || en;
 };
 
 export function t(key: string): string {
