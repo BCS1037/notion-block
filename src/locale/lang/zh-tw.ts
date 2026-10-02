@@ -3,6 +3,14 @@ import { LocaleType } from "./en";
 const zhTw: LocaleType = {
     "settings.enablePlugin.name": "啟用插件",
     "settings.enablePlugin.desc": "啟用或禁用區塊插件。",
+    "settings.showAddButton.name": "顯示獨立新增按鈕",
+    "settings.showAddButton.desc": "在區塊手柄旁顯示 + 按鈕。區塊選單中始終提供新增入口。",
+    "settings.menuLayout.name": "選單命令",
+    "settings.menuLayout.desc": "選擇命令在主選單展開，或收進「更多」。可在這裡或彈出選單中拖動手柄，調整各組內的順序。修改自動儲存。",
+    "settings.menuLayout.position": "命令顯示位置與順序",
+    "settings.menuLayout.expanded": "主選單展開",
+    "settings.menuLayout.collapsed": "收入更多",
+    "settings.menuLayout.reset": "恢復此組預設版面",
     "settings.dragGranularity.name": "拖曳粒度",
     "settings.dragGranularity.desc": "在行模式和段落模式之間切換。",
     "settings.dragGranularity.line": "行模式",
@@ -18,11 +26,17 @@ const zhTw: LocaleType = {
     
     "handles.addBlock": "在下方添加區塊",
     "handles.dragReorder": "拖曳以重排",
+    "handles.blockActions": "點擊開啟區塊選單，按住拖曳",
     "handles.switchToParagraph": "切換到段落模式",
     "handles.switchToLine": "切換到行模式",
 
     "menu.turnInto": "轉換成",
     "menu.insert": "新增",
+    "menu.addInsert": "新增",
+    "menu.back": "返回",
+    "menu.moreInsert": "更多新增",
+    "menu.moreTransform": "更多轉換",
+    "menu.reorder": "拖動排序；也可使用 Alt + 上/下方向鍵",
     "menu.color": "顏色",
     "menu.textColor": "文字顏色",
     "menu.backgroundColor": "背景顏色",
@@ -103,6 +117,7 @@ const zhTw: LocaleType = {
     "notice.linkCopyFailed": "複製區塊連結失敗",
     "notice.selectImage": "請選擇圖片檔案。",
     "notice.insertImageFailed": "插入圖片失敗。",
+    "notice.menuLayoutSaveFailed": "選單版面儲存失敗，已恢復原版面。",
     "table.column": "欄"
 };
 

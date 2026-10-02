@@ -1,6 +1,7 @@
 import en from "./lang/en";
 import zh from "./lang/zh";
 import zhTw from "./lang/zh-tw";
+import { getLanguage } from "obsidian";
 
 const localeMap: Record<string, Record<string, string>> = {
     en,
@@ -11,8 +12,7 @@ const localeMap: Record<string, Record<string, string>> = {
 };
 
 const getLocale = (): Record<string, string> => {
-    // Obsidian stores UI language in localStorage
-    const lang = window.localStorage?.getItem("language") || "en";
+    const lang = getLanguage() || "en";
     return localeMap[lang] || localeMap[lang.split("-")[0]] || en;
 };
 

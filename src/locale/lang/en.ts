@@ -1,6 +1,14 @@
 const en = {
     "settings.enablePlugin.name": "Enable plugin",
     "settings.enablePlugin.desc": "Enable or disable the block plugin.",
+    "settings.showAddButton.name": "Show separate add button",
+    "settings.showAddButton.desc": "Show a + button beside the block handle. Add commands are always available in the block menu.",
+    "settings.menuLayout.name": "Menu commands",
+    "settings.menuLayout.desc": "Choose which commands appear in the main menu or under More. Drag the handles here or in the popup to reorder commands within each group. Changes save automatically.",
+    "settings.menuLayout.position": "Command placement and order",
+    "settings.menuLayout.expanded": "Main menu",
+    "settings.menuLayout.collapsed": "Under More",
+    "settings.menuLayout.reset": "Reset this group to defaults",
     "settings.dragGranularity.name": "Drag granularity",
     "settings.dragGranularity.desc": "Switch between line mode and paragraph mode.",
     "settings.dragGranularity.line": "Line mode",
@@ -16,11 +24,17 @@ const en = {
     
     "handles.addBlock": "Add block below",
     "handles.dragReorder": "Drag to reorder",
+    "handles.blockActions": "Click for block actions; hold to drag",
     "handles.switchToParagraph": "Switch to paragraph mode",
     "handles.switchToLine": "Switch to line mode",
 
     "menu.turnInto": "Turn into",
     "menu.insert": "Insert",
+    "menu.addInsert": "Add",
+    "menu.back": "Back",
+    "menu.moreInsert": "More add commands",
+    "menu.moreTransform": "More conversions",
+    "menu.reorder": "Drag to reorder; Alt + Up / Down also works",
     "menu.color": "Color",
     "menu.textColor": "Text color",
     "menu.backgroundColor": "Background color",
@@ -101,6 +115,7 @@ const en = {
     "notice.linkCopyFailed": "Failed to copy block link",
     "notice.selectImage": "Please select an image file.",
     "notice.insertImageFailed": "Failed to insert image.",
+    "notice.menuLayoutSaveFailed": "Could not save the menu layout. Previous layout restored.",
     "table.column": "Column"
 };
 
