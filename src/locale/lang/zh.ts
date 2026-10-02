@@ -3,6 +3,14 @@ import { LocaleType } from "./en";
 const zh: LocaleType = {
     "settings.enablePlugin.name": "启用插件",
     "settings.enablePlugin.desc": "启用或禁用区块插件。",
+    "settings.showAddButton.name": "显示独立添加按钮",
+    "settings.showAddButton.desc": "在块手柄旁显示 + 按钮。块菜单中始终提供新增入口。",
+    "settings.menuLayout.name": "菜单命令",
+    "settings.menuLayout.desc": "选择命令在主菜单展开，或收进「更多」。可在这里或弹出菜单中拖动手柄，调整各组内的顺序。修改自动保存。",
+    "settings.menuLayout.position": "命令显示位置与顺序",
+    "settings.menuLayout.expanded": "主菜单展开",
+    "settings.menuLayout.collapsed": "收入更多",
+    "settings.menuLayout.reset": "恢复此组默认布局",
     "settings.dragGranularity.name": "拖拽粒度",
     "settings.dragGranularity.desc": "在行模式和段落模式之间切换。",
     "settings.dragGranularity.line": "行模式",
@@ -18,11 +26,17 @@ const zh: LocaleType = {
     
     "handles.addBlock": "在下方添加区块",
     "handles.dragReorder": "拖拽以重排",
+    "handles.blockActions": "点击打开块菜单，按住拖拽",
     "handles.switchToParagraph": "切换到段落模式",
     "handles.switchToLine": "切换到行模式",
 
     "menu.turnInto": "转换成",
     "menu.insert": "新增",
+    "menu.addInsert": "新增",
+    "menu.back": "返回",
+    "menu.moreInsert": "更多新增",
+    "menu.moreTransform": "更多转换",
+    "menu.reorder": "拖动排序；也可使用 Alt + 上/下方向键",
     "menu.color": "颜色",
     "menu.textColor": "文本颜色",
     "menu.backgroundColor": "背景颜色",
@@ -103,6 +117,7 @@ const zh: LocaleType = {
     "notice.linkCopyFailed": "复制区块链接失败",
     "notice.selectImage": "请选择图片文件。",
     "notice.insertImageFailed": "插入图片失败。",
+    "notice.menuLayoutSaveFailed": "菜单布局保存失败，已恢复原布局。",
     "table.column": "列"
 };
 

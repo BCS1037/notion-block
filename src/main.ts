@@ -1,9 +1,12 @@
 import { Plugin } from 'obsidian';
 import { BlockPluginSettings, DEFAULT_SETTINGS, BlockPluginSettingTab } from './settings';
 import { blockHandlesExtension } from './blockHandles';
+import { MenuLayout, normalizeMenuLayout } from './menuLayout';
 
 export default class NotionBlock extends Plugin {
     settings: BlockPluginSettings;
+    private settingsSaveQueue: Promise<void> = Promise.resolve();
+    private savedMenuLayout: MenuLayout = normalizeMenuLayout();
 
     async onload() {
         await this.loadSettings();
@@ -22,11 +25,31 @@ export default class NotionBlock extends Plugin {
     async loadSettings() {
         const data = await this.loadData() as Partial<BlockPluginSettings> | null;
         this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+        this.settings.menuLayout = normalizeMenuLayout(data?.menuLayout);
+        this.savedMenuLayout = normalizeMenuLayout(this.settings.menuLayout);
     }
 
-    async saveSettings() {
-        await this.saveData(this.settings);
+    async saveSettings(refreshEditor = true) {
+        const snapshot = { ...this.settings, menuLayout: normalizeMenuLayout(this.settings.menuLayout) };
+        const write = this.settingsSaveQueue.then(async () => {
+            await this.saveData(snapshot);
+            this.savedMenuLayout = snapshot.menuLayout;
+        });
+        this.settingsSaveQueue = write.catch(() => {});
+        await write;
         // Notify editor extensions that settings have changed
-        this.app.workspace.updateOptions();
+        if (refreshEditor) this.app.workspace.updateOptions();
+    }
+
+    async saveMenuLayout(layout: MenuLayout): Promise<void> {
+        const next = normalizeMenuLayout(layout);
+        this.settings.menuLayout = next;
+        try {
+            // 排序无需重建编辑器，保持当前菜单与输入焦点。
+            await this.saveSettings(false);
+        } catch (error) {
+            if (this.settings.menuLayout === next) this.settings.menuLayout = normalizeMenuLayout(this.savedMenuLayout);
+            throw error;
+        }
     }
 }

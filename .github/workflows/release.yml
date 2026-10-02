@@ -19,18 +19,36 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
+          node-version: "22.x"
 
       - name: Build plugin
         run: |
-          npm install --legacy-peer-deps
+          npm ci
+          npm run lint:store
+          npm run lint
+          npm run typecheck
           npm run build
+
+      - name: Prepare release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const { version } = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+          if (process.env.RELEASE_TAG !== version) throw new Error("Release tag must match manifest version");
+          const changelog = fs.readFileSync("CHANGELOG.md", "utf8");
+          const section = changelog.split(/(?=^## \[)/m).find(part => part.startsWith(`## [${version}]`));
+          if (!section) throw new Error("Changelog section missing for release version");
+          fs.writeFileSync("release-notes.md", section.trim() + "\n");
+          NODE
 
       - name: Attest assets
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             main.js
+            manifest.json
             styles.css
 
       - name: Create release
@@ -40,6 +58,6 @@ jobs:
             main.js
             manifest.json
             styles.css
-          generate_release_notes: true
+          body_path: release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

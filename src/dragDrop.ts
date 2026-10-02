@@ -1,7 +1,8 @@
 import { EditorView } from "@codemirror/view";
+import { Component } from "obsidian";
 import NotionBlock from "./main";
 
-export class DragManager {
+export class DragManager extends Component {
     private ghostEl: HTMLElement | null = null;
     private indicatorEl: HTMLElement | null = null;
     private isDragging = false;
@@ -9,13 +10,18 @@ export class DragManager {
     private currentTargetLine: number | null = null;
     private ownerDocument: Document;
     private ownerWindow: Window;
+    private activePointerId: number | null = null;
+    private pointerCaptureEl: Element | null = null;
+    private dragEvents: Component | null = null;
 
     constructor(private plugin: NotionBlock, private view: EditorView) {
+        super();
         this.ownerDocument = view.dom.ownerDocument;
         this.ownerWindow = this.ownerDocument.defaultView ?? activeWindow;
     }
 
-    startDrag(lineNo: number, event: MouseEvent) {
+    startDrag(lineNo: number, event: MouseEvent | PointerEvent, captureEl?: HTMLElement) {
+        this.stopDrag(false);
         this.isDragging = true;
         
         // Clear any existing selection
@@ -61,8 +67,18 @@ export class DragManager {
             cls: "block-drag-indicator"
         });
 
-        this.ownerDocument.addEventListener("mousemove", this.onMouseMove);
-        this.ownerDocument.addEventListener("mouseup", this.onMouseUp);
+        this.dragEvents = this.addChild(new Component());
+        if ("pointerId" in event) {
+            this.activePointerId = event.pointerId;
+            this.capturePointer(event, captureEl);
+            this.dragEvents.registerDomEvent(this.ownerDocument, "pointermove", this.onPointerMove);
+            // 句柄会拦截冒泡；在捕获阶段结束拖拽，保证松手后清理。
+            this.dragEvents.registerDomEvent(this.ownerDocument, "pointerup", this.onPointerUp, true);
+            this.dragEvents.registerDomEvent(this.ownerDocument, "pointercancel", this.onPointerCancel, true);
+        } else {
+            this.dragEvents.registerDomEvent(this.ownerDocument, "mousemove", this.onMouseMove);
+            this.dragEvents.registerDomEvent(this.ownerDocument, "mouseup", this.onMouseUp, true);
+        }
         
         // Prevent text selection during drag
         this.ownerDocument.body.addClass("is-dragging-block");
@@ -70,24 +86,43 @@ export class DragManager {
 
     private onMouseMove = (event: MouseEvent) => {
         if (!this.isDragging) return;
+        this.handleMove(event);
+    };
 
-        this.updateGhostPosition(event.clientX, event.clientY);
+    private onPointerMove = (event: PointerEvent): void => {
+        if (!this.isDragging || event.pointerId !== this.activePointerId) return;
+        event.preventDefault();
+        this.handleMove(event);
+    };
 
-        const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
+    private handleMove(point: { clientX: number; clientY: number }): void {
+        this.updateGhostPosition(point.clientX, point.clientY);
+
+        const pos = this.view.posAtCoords({ x: point.clientX, y: point.clientY });
         if (pos !== null) {
             const line = this.view.state.doc.lineAt(pos);
-            this.updateIndicator(line.number, event.clientY);
+            this.updateIndicator(line.number, point.clientY);
         }
-    };
+    }
 
     private onMouseUp = (_event: MouseEvent) => {
         this.stopDrag();
     };
 
-    private stopDrag() {
+    private onPointerUp = (event: PointerEvent): void => {
+        if (event.pointerId !== this.activePointerId) return;
+        this.stopDrag();
+    };
+
+    private onPointerCancel = (event: PointerEvent): void => {
+        if (event.pointerId !== this.activePointerId) return;
+        this.stopDrag(false);
+    };
+
+    private stopDrag(commit = true) {
         if (!this.isDragging) return;
 
-        if (this.startBlock !== null && this.currentTargetLine !== null) {
+        if (commit && this.startBlock !== null && this.currentTargetLine !== null) {
             this.moveBlock(this.startBlock, this.currentTargetLine);
         }
 
@@ -104,9 +139,38 @@ export class DragManager {
             this.indicatorEl = null;
         }
 
-        this.ownerDocument.removeEventListener("mousemove", this.onMouseMove);
-        this.ownerDocument.removeEventListener("mouseup", this.onMouseUp);
+        this.releasePointer();
+        if (this.dragEvents) this.removeChild(this.dragEvents);
+        this.dragEvents = null;
         this.ownerDocument.body.removeClass("is-dragging-block");
+    }
+
+    onunload(): void {
+        this.stopDrag(false);
+    }
+
+    private capturePointer(event: PointerEvent, captureEl?: HTMLElement): void {
+        const target = captureEl ?? event.currentTarget;
+        const ownerElement = this.ownerDocument.defaultView?.Element;
+        if (!ownerElement || !(target instanceof ownerElement)) return;
+        try {
+            target.setPointerCapture(event.pointerId);
+            this.pointerCaptureEl = target;
+        } catch {
+            // 合成事件或旧 WebView 可能不支持 pointer capture。
+        }
+    }
+
+    private releasePointer(): void {
+        if (this.pointerCaptureEl && this.activePointerId !== null) {
+            try {
+                this.pointerCaptureEl.releasePointerCapture(this.activePointerId);
+            } catch {
+                // 指针可能已经由宿主释放。
+            }
+        }
+        this.pointerCaptureEl = null;
+        this.activePointerId = null;
     }
 
     private updateGhostPosition(x: number, y: number) {
