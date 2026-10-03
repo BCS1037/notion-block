@@ -1,7 +1,7 @@
+import { getLanguage } from "obsidian";
 import en from "./lang/en";
 import zh from "./lang/zh";
 import zhTw from "./lang/zh-tw";
-import { getLanguage } from "obsidian";
 
 const localeMap: Record<string, Record<string, string>> = {
     en,
@@ -12,8 +12,11 @@ const localeMap: Record<string, Record<string, string>> = {
 };
 
 const getLocale = (): Record<string, string> => {
-    const lang = (getLanguage() || "en").toLowerCase();
-    return localeMap[lang] || localeMap[lang.split("-")[0]] || en;
+    const detectedLanguage = typeof getLanguage === "function"
+        ? getLanguage()
+        : window.localStorage?.getItem("language");
+    const language = (detectedLanguage || "en").trim().toLowerCase();
+    return localeMap[language] || localeMap[language.split("-")[0]] || en;
 };
 
 export function t(key: string): string {
