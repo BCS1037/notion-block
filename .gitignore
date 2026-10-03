@@ -4,3 +4,8 @@ main.js
 PRD/
 FILETREE.md
 AGENT.md
+AGENTS.md
+AGENTS.md.bak-*
+.agent/
+.agents/
+.claude/
