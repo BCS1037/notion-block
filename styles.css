@@ -17,6 +17,10 @@
     display: none;
 }
 
+.block-handle-wrap.is-hidden {
+    pointer-events: none;
+}
+
 .block-handle-wrap:not(.is-hidden) {
     opacity: 1;
 }

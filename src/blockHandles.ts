@@ -7,6 +7,16 @@ import { t } from "./locale/helpers";
 
 const DESKTOP_DRAG_DELAY_MS = 150;
 const MOBILE_DRAG_DELAY_MS = 300;
+const HEADING_HANDLE_GAP_PX = 6;
+const HANDLE_EDGE_GAP_PX = 4;
+
+interface HandlePosition {
+    lineNo: number;
+    left: number;
+    top: number;
+    inset: number;
+    marginLeft: number;
+}
 
 export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromClass(class extends Component {
     handleEl: HTMLElement | null = null;
@@ -18,6 +28,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     dragManager: DragManager | null = null;
     ownerWindow: Window;
     isMouseOverHandle = false;
+    handleInset = 0;
 
     constructor(view: EditorView) {
         super();
@@ -31,9 +42,15 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     }
 
     createHandle(view: EditorView): void {
-        this.handleEl = view.scrollDOM.createDiv({ cls: "block-handle-wrap is-hidden" });
+        // 放在滚动区外，避免标题左移后被 .cm-scroller 的 overflow 裁切。
+        this.handleEl = view.dom.createDiv({ cls: "block-handle-wrap is-hidden" });
         this.handleEl.toggleClass("is-mobile", this.isMobileView());
         this.syncHandleLayout();
+        const originalMarginLeft = view.scrollDOM.style.marginLeft;
+        this.register(() => view.scrollDOM.setCssStyles({ marginLeft: originalMarginLeft }));
+        this.registerDomEvent(view.dom, "mousemove", (event) => this.handleMouseMove(view, event));
+        this.registerDomEvent(view.dom, "mouseleave", () => this.handleMouseLeave());
+        this.registerDomEvent(view.scrollDOM, "scroll", () => this.updatePosition(view));
         this.registerDomEvent(view.dom, "pointerdown", (event) => this.handlePointerDown(view, event));
 
         this.addButton = this.handleEl.createDiv({
@@ -144,7 +161,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             this.revealHandleAtSelection(update.view);
             return;
         }
-        if ((layoutChanged || update.docChanged || update.viewportChanged) && this.hoveredLine !== null) {
+        if ((layoutChanged || update.docChanged || update.geometryChanged || update.selectionSet) && this.hoveredLine !== null) {
             this.updatePosition(update.view);
         }
     }
@@ -159,19 +176,75 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     updatePosition(view: EditorView): void {
         if (this.hoveredLine === null || !this.handleEl) return;
         this.syncHandleLayout();
+        // CodeMirror 更新期间不能读布局；合并到宿主的测量阶段。
+        view.requestMeasure({
+            key: this,
+            read: () => this.measurePosition(view),
+            write: (position) => {
+                if (!this.handleEl || this.hoveredLine === null) return;
+                if (!position) {
+                    this.hideHandle();
+                    return;
+                }
+                if (position.lineNo !== this.hoveredLine) return;
+                if (position.inset > this.handleInset) {
+                    // 空间不足才补最小留白；同一视图内保持，避免逐行悬停时正文跳动。
+                    this.handleInset = position.inset;
+                    view.scrollDOM.setCssStyles({ marginLeft: `${position.marginLeft}px` });
+                    this.updatePosition(view);
+                    return;
+                }
+                this.handleEl.setCssStyles({
+                    left: `${position.left}px`,
+                    transform: `translate3d(0, ${Math.round(position.top)}px, 0)`
+                });
+                this.handleEl.removeClass("is-hidden");
+            }
+        });
+    }
+
+    measurePosition(view: EditorView): HandlePosition | null {
+        if (this.hoveredLine === null || !this.handleEl) return null;
         try {
             const line = view.state.doc.line(this.hoveredLine);
             const coords = view.coordsAtPos(line.from);
-            if (!coords) return;
+            if (!coords) return null;
+            const editorRect = view.dom.getBoundingClientRect();
             const scrollerRect = view.scrollDOM.getBoundingClientRect();
-            let top = coords.top - scrollerRect.top + view.scrollDOM.scrollTop;
+            if (coords.bottom <= scrollerRect.top || coords.top >= scrollerRect.bottom) return null;
             const lineHeight = coords.bottom - coords.top;
             const handleHeight = this.handleEl.offsetHeight || 24;
-            top += (lineHeight - handleHeight) / 2;
-            const left = this.getHandleLeft(view);
-            this.handleEl.setCssStyles({ transform: `translate3d(${left}px, ${Math.round(top)}px, 0)` });
+            const mobile = this.handleEl.hasClass("is-mobile") || this.isMobileView();
+            const fallbackWidth = plugin.settings.showAddButton ? (mobile ? 74 : 44) : (mobile ? 34 : 20);
+            const width = this.handleEl.offsetWidth || fallbackWidth;
+            const foldRect = this.getHeadingFoldRect(view, line.from);
+            const left = this.getHandleLeft(view, width, editorRect, foldRect);
+            const minLeft = Math.max(HANDLE_EDGE_GAP_PX, HANDLE_EDGE_GAP_PX - editorRect.left);
+            const maxLeft = Math.min(editorRect.right, this.ownerWindow.innerWidth) - editorRect.left - width - HANDLE_EDGE_GAP_PX;
+            if (maxLeft < minLeft) return null;
+
+            let inset = this.handleInset;
+            const scrollerStyle = this.ownerWindow.getComputedStyle(view.scrollDOM);
+            const currentMargin = parseFloat(scrollerStyle.marginLeft) || 0;
+            if (left < minLeft) {
+                const contentLeft = view.contentDOM.getBoundingClientRect().left;
+                const gap = Math.max(mobile ? 6 : 8, foldRect ? HEADING_HANDLE_GAP_PX + contentLeft - foldRect.left : 0);
+                const paddingLeft = parseFloat(scrollerStyle.paddingLeft) || 0;
+                const baseLeft = scrollerRect.left - editorRect.left - this.handleInset + paddingLeft;
+                inset = Math.max(inset, Math.ceil(minLeft + width + gap - baseLeft));
+            }
+            const minTop = Math.max(scrollerRect.top, 0) - editorRect.top;
+            const maxTop = Math.min(scrollerRect.bottom, this.ownerWindow.innerHeight) - editorRect.top - handleHeight;
+            return {
+                lineNo: this.hoveredLine,
+                left: Math.min(Math.max(left, minLeft), maxLeft),
+                top: Math.min(Math.max(coords.top - editorRect.top + (lineHeight - handleHeight) / 2, minTop), maxTop),
+                inset,
+                marginLeft: currentMargin - this.handleInset + inset
+            };
         } catch {
-            this.hideHandle();
+            // 文档或可见范围正被更新，下一次悬停重新测量。
+            return null;
         }
     }
 
@@ -183,9 +256,9 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             this.handleMouseLeave();
             return;
         }
-        const target = event.target;
+        const target = event.targetNode;
         const ownerHTMLElement = view.dom.ownerDocument.defaultView?.HTMLElement;
-        if (ownerHTMLElement && target instanceof ownerHTMLElement && target.closest(".block-handle-wrap")) {
+        if (ownerHTMLElement && target?.instanceOf(ownerHTMLElement) && target.closest(".block-handle-wrap")) {
             this.clearHideTimeout();
             if (this.handleEl?.hasClass("is-hidden")) {
                 this.handleEl.removeClass("is-hidden");
@@ -195,15 +268,20 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             return;
         }
         const lineNo = this.getLineAtClientY(view, event.clientY);
-        if (lineNo !== null && this.hoveredLine !== lineNo) this.revealHandleAtLine(view, lineNo);
+        if (lineNo === null) {
+            this.handleMouseLeave();
+            return;
+        }
+        if (this.hoveredLine !== lineNo) this.revealHandleAtLine(view, lineNo);
+        else this.updatePosition(view);
         this.clearHideTimeout();
     }
 
     handlePointerDown(view: EditorView, event: PointerEvent): void {
         if (event.pointerType === "mouse" || !this.isMobilePointer(event)) return;
-        const target = event.target;
+        const target = event.targetNode;
         const ownerHTMLElement = view.dom.ownerDocument.defaultView?.HTMLElement;
-        if (!ownerHTMLElement || !(target instanceof ownerHTMLElement)) return;
+        if (!ownerHTMLElement || !target?.instanceOf(ownerHTMLElement)) return;
         if (target.closest(".block-handle-wrap") || target.closest(".wk-nb-action-menu")) return;
         const rect = view.dom.getBoundingClientRect();
         if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
@@ -247,12 +325,22 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         this.handleEl = null;
     }
 
-    getHandleLeft(view: EditorView): number {
+    getHandleLeft(view: EditorView, width: number, editorRect: DOMRect, foldRect: DOMRect | null): number {
         const mobile = this.handleEl?.hasClass("is-mobile") || this.isMobileView();
-        const fallbackWidth = plugin.settings.showAddButton ? (mobile ? 74 : 44) : (mobile ? 34 : 20);
-        const width = this.handleEl?.offsetWidth || fallbackWidth;
-        const left = view.contentDOM.offsetLeft - width - (mobile ? 6 : 8);
-        return mobile ? Math.max(4, left) : left;
+        const left = view.contentDOM.getBoundingClientRect().left - editorRect.left - width - (mobile ? 6 : 8);
+        return foldRect ? Math.min(left, foldRect.left - editorRect.left - width - HEADING_HANDLE_GAP_PX) : left;
+    }
+
+    getHeadingFoldRect(view: EditorView, lineFrom: number): DOMRect | null {
+        const node = view.domAtPos(lineFrom).node;
+        const ownerHTMLElement = view.dom.ownerDocument.defaultView?.HTMLElement;
+        const element = ownerHTMLElement && node.instanceOf(ownerHTMLElement) ? node : node.parentElement;
+        const lineEl = element?.closest<HTMLElement>(".cm-line");
+        if (!lineEl?.hasClass("HyperMD-header")) return null;
+        const foldEl = lineEl.querySelector<HTMLElement>(".collapse-indicator");
+        if (!foldEl) return null;
+        const rect = foldEl.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 ? rect : null;
     }
 
     getLineAtClientY(view: EditorView, clientY: number): number | null {
@@ -285,7 +373,6 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
 
     revealHandleAtLine(view: EditorView, lineNo: number, forceMobile = false): void {
         this.hoveredLine = lineNo;
-        this.handleEl?.removeClass("is-hidden");
         this.handleEl?.toggleClass("is-mobile", forceMobile || this.isMobileView());
         this.updatePosition(view);
         this.clearHideTimeout();
@@ -297,14 +384,5 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
 
     isMobilePointer(event: PointerEvent): boolean {
         return this.isMobileView() || event.pointerType === "touch" || event.pointerType === "pen";
-    }
-}, {
-    eventHandlers: {
-        mousemove(event, view) {
-            this.handleMouseMove(view, event);
-        },
-        mouseleave() {
-            this.handleMouseLeave();
-        }
     }
 });
