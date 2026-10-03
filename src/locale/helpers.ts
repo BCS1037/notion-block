@@ -12,7 +12,7 @@ const localeMap: Record<string, Record<string, string>> = {
 };
 
 const getLocale = (): Record<string, string> => {
-    const lang = getLanguage() || "en";
+    const lang = (getLanguage() || "en").toLowerCase();
     return localeMap[lang] || localeMap[lang.split("-")[0]] || en;
 };
 
