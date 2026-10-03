@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.1] - 2026-10-03
+
+### Fixed
+
+- Keep the block handle clear of heading collapse arrows. Handles on other lines keep their usual position.
+- Keep handles visible and clickable at editor edges and in narrow panes, including when the separate **+** button is enabled.
+- Keep handle positioning stable when scrolling or moving the pointer onto the handle. Hidden handles no longer intercept clicks.
+- Preserve mouse and touch handle interactions in pop-out windows.
+
 ## [1.5.0] - 2026-10-02
 
 ### Added
@@ -25,4 +34,5 @@
 - Requires Obsidian **1.8.7** or later.
 - Remains a desktop-only plugin.
 
+[1.5.1]: https://github.com/BCS1037/notion-block/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/BCS1037/notion-block/compare/1.4.0...1.5.0
