@@ -11,10 +11,6 @@ const zh: LocaleType = {
     "settings.menuLayout.expanded": "主菜单展开",
     "settings.menuLayout.collapsed": "收入更多",
     "settings.menuLayout.reset": "恢复此组默认布局",
-    "settings.dragGranularity.name": "拖拽粒度",
-    "settings.dragGranularity.desc": "在行模式和段落模式之间切换。",
-    "settings.dragGranularity.line": "行模式",
-    "settings.dragGranularity.paragraph": "段落模式",
     "settings.hoverDelay.name": "悬浮显示延迟",
     "settings.hoverDelay.desc": "显示句柄之前的延迟（毫秒）。",
     "settings.hideDelay.name": "悬浮隐藏延迟",
@@ -27,8 +23,11 @@ const zh: LocaleType = {
     "handles.addBlock": "在下方添加区块",
     "handles.dragReorder": "拖拽以重排",
     "handles.blockActions": "点击打开块菜单，按住拖拽",
-    "handles.switchToParagraph": "切换到段落模式",
-    "handles.switchToLine": "切换到行模式",
+    "drag.list": "加入列表同级项",
+    "drag.nest": "成为此项的子项",
+    "drag.outdent": "减少一级缩进",
+    "drag.callout": "移入 callout",
+    "drag.quote": "移入引用",
 
     "menu.turnInto": "转换成",
     "menu.insert": "新增",
@@ -54,6 +53,7 @@ const zh: LocaleType = {
     "menu.math": "数学块",
     "menu.divider": "分割线",
 
+    "menu.selectBlock": "选择整个块",
     "menu.copyLink": "拷贝区块链接",
     "menu.delete": "删除",
 

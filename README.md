@@ -33,7 +33,10 @@ Requires the desktop version of Obsidian 1.8.7 or later.
 
 ### 4. Drag & Drop
 - Long-press the handle (150ms) to drag and reorder blocks visually.
-- Toggle between **Line mode** (single physical line) and **Paragraph mode** (logical block) via the block action menu or the handle's context menu (right-click).
+- Dragging and **Turn into** share the same scope: a selection takes priority; otherwise use the current paragraph, list item with its descendants, or quote/callout body line. First list items and quote lines follow the same rules as later ones.
+- Code blocks, tables, and math blocks stay intact. A callout title handle controls the whole callout.
+- Choose **Select whole block** in the block menu or the handle's context menu to select an entire list, quote, or callout before moving or converting it.
+- Drop into a list, quote, or callout to add content at that position; move right or left over a list to nest or outdent.
 
 ## Installation
 

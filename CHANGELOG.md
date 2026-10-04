@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.6.0] - 2026-10-04
+
+### Added
+
+- Select an entire list, quote, or callout from the block menu before moving or converting it.
+- Reorder list items by dragging, and change nesting by moving an item right or left.
+- Drop content into a list, quote, or callout to add it at the hovered position.
+
+### Changed
+
+- Use one selection-first scope for dragging and **Turn into**. Remove the line/paragraph mode setting; list items and quote/callout body lines follow consistent rules.
+- Treat adjacent block types as separate drag targets even when no blank line separates them. Keep code, table, and math blocks intact.
+
+### Fixed
+
+- Convert selected multi-line content into one callout while preserving its list and nested Markdown structure.
+- Preserve content when converting between quotes and callouts, and when dragging a non-first quote line out of its quote.
+- Drop content into the middle of lists, quotes, and callouts without moving it to an endpoint or adding unwanted blank lines.
+- Normalize language identifiers and retain a fallback for older Obsidian language settings.
+
 ## [1.5.1] - 2026-10-03
 
 ### Fixed
@@ -34,5 +54,6 @@
 - Requires Obsidian **1.8.7** or later.
 - Remains a desktop-only plugin.
 
+[1.6.0]: https://github.com/BCS1037/notion-block/compare/1.5.1...1.6.0
 [1.5.1]: https://github.com/BCS1037/notion-block/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/BCS1037/notion-block/compare/1.4.0...1.5.0

@@ -11,10 +11,6 @@ const zhTw: LocaleType = {
     "settings.menuLayout.expanded": "主選單展開",
     "settings.menuLayout.collapsed": "收入更多",
     "settings.menuLayout.reset": "恢復此組預設版面",
-    "settings.dragGranularity.name": "拖曳粒度",
-    "settings.dragGranularity.desc": "在行模式和段落模式之間切換。",
-    "settings.dragGranularity.line": "行模式",
-    "settings.dragGranularity.paragraph": "段落模式",
     "settings.hoverDelay.name": "懸停顯示延遲",
     "settings.hoverDelay.desc": "顯示句柄之前的延遲（毫秒）。",
     "settings.hideDelay.name": "懸停隱藏延遲",
@@ -27,8 +23,11 @@ const zhTw: LocaleType = {
     "handles.addBlock": "在下方添加區塊",
     "handles.dragReorder": "拖曳以重排",
     "handles.blockActions": "點擊開啟區塊選單，按住拖曳",
-    "handles.switchToParagraph": "切換到段落模式",
-    "handles.switchToLine": "切換到行模式",
+    "drag.list": "加入列表同級項",
+    "drag.nest": "成為此項的子項",
+    "drag.outdent": "減少一級縮排",
+    "drag.callout": "移入 callout",
+    "drag.quote": "移入引用",
 
     "menu.turnInto": "轉換成",
     "menu.insert": "新增",
@@ -54,6 +53,7 @@ const zhTw: LocaleType = {
     "menu.math": "數學區塊",
     "menu.divider": "分割線",
 
+    "menu.selectBlock": "選取整個區塊",
     "menu.copyLink": "複製區塊連結",
     "menu.delete": "刪除",
 

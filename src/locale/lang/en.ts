@@ -9,10 +9,6 @@ const en = {
     "settings.menuLayout.expanded": "Main menu",
     "settings.menuLayout.collapsed": "Under More",
     "settings.menuLayout.reset": "Reset this group to defaults",
-    "settings.dragGranularity.name": "Drag granularity",
-    "settings.dragGranularity.desc": "Switch between line mode and paragraph mode.",
-    "settings.dragGranularity.line": "Line mode",
-    "settings.dragGranularity.paragraph": "Paragraph mode",
     "settings.hoverDelay.name": "Button hover delay",
     "settings.hoverDelay.desc": "Delay (ms) before showing handles.",
     "settings.hideDelay.name": "Button hide delay",
@@ -25,8 +21,11 @@ const en = {
     "handles.addBlock": "Add block below",
     "handles.dragReorder": "Drag to reorder",
     "handles.blockActions": "Click for block actions; hold to drag",
-    "handles.switchToParagraph": "Switch to paragraph mode",
-    "handles.switchToLine": "Switch to line mode",
+    "drag.list": "Add list item",
+    "drag.nest": "Nest under item",
+    "drag.outdent": "Outdent item",
+    "drag.callout": "Move into callout",
+    "drag.quote": "Move into quote",
 
     "menu.turnInto": "Turn into",
     "menu.insert": "Insert",
@@ -52,6 +51,7 @@ const en = {
     "menu.math": "Math block",
     "menu.divider": "Divider",
 
+    "menu.selectBlock": "Select whole block",
     "menu.copyLink": "Copy block link",
     "menu.delete": "Delete",
 
