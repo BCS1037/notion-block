@@ -198,16 +198,24 @@ export function transformLine(view: EditorView, lineNo: number, targetType: stri
                 default: return content;
             }
         };
-        newText = getDragStructure(contentDoc).flatMap(node => {
-            if (!isDragList(node)) return transformContent(Text.of(node.lines), true).map(convertLine);
-            return node.children.flatMap(item => {
+        const convertedLines: string[] = [];
+        for (const node of getDragStructure(contentDoc)) {
+            if (!isDragList(node)) {
+                for (const line of transformContent(Text.of(node.lines), true)) convertedLines.push(convertLine(line));
+                continue;
+            }
+            for (const item of node.children) {
                 const first = convertLine({ text: item.lines[0], preservePrefix: false });
                 const head = first.match(/^([ \t]*(?:[-+*]|\d+[.)])[ \t]+)/)?.[1] ?? "";
                 const width = head.replace(/\t/g, "    ").length;
                 // 只改当前项标记；子列表和字面量块保留原有语法。
-                return [first, ...item.lines.slice(1).map(line => reindentContinuation(line, item.marker?.width ?? 0, width))];
-            });
-        }).join("\n");
+                convertedLines.push(first);
+                for (const line of item.lines.slice(1)) {
+                    convertedLines.push(reindentContinuation(line, item.marker?.width ?? 0, width));
+                }
+            }
+        }
+        newText = convertedLines.join("\n");
     }
     newText = newText.split("\n").map(line => selected.prefix + line).join("\n");
     if (newText === selected.text) return;
