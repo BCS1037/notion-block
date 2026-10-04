@@ -3,6 +3,8 @@ import { Component, Menu, Platform, setIcon } from "obsidian";
 import NotionBlock from "./main";
 import { showNotionBlockActionMenu, closeNotionBlockActionMenus } from "./notionActionMenu";
 import { DragManager } from "./dragDrop";
+import { selectWholeBlock } from "./blockTransform";
+import { measureBlockLayout } from "./blockGeometry";
 import { t } from "./locale/helpers";
 
 const DESKTOP_DRAG_DELAY_MS = 150;
@@ -101,7 +103,10 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
                 this.dragTimeout = null;
                 isDragging = true;
                 suppressClick = true;
-                if (!this.dragManager) this.dragManager = this.addChild(new DragManager(plugin, view));
+                if (!this.dragManager) this.dragManager = this.addChild(new DragManager(view, () => {
+                    pointerId = null;
+                    this.clearDragTimeout();
+                }));
                 this.dragManager.startDrag(lineNo, event, this.dragButton ?? undefined);
             }, delay);
         });
@@ -119,6 +124,15 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             pointerId = null;
             this.clearDragTimeout();
         });
+        const cancelPendingPress = (event: PointerEvent): void => {
+            if (event.pointerId !== pointerId || isDragging) return;
+            const target = event.targetNode;
+            if (target && this.dragButton?.contains(target)) return;
+            pointerId = null;
+            this.clearDragTimeout();
+        };
+        this.registerDomEvent(view.dom.ownerDocument, "pointerup", cancelPendingPress, true);
+        this.registerDomEvent(view.dom.ownerDocument, "pointercancel", cancelPendingPress, true);
         this.registerDomEvent(this.dragButton, "click", (event) => {
             if (suppressClick) event.preventDefault();
             event.stopPropagation();
@@ -131,13 +145,15 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             openMenu();
         });
         this.registerDomEvent(this.dragButton, "contextmenu", (event) => {
+            if (this.hoveredLine === null) return;
+            const lineNo = this.hoveredLine;
             const menu = new Menu();
             menu.addItem((item) => {
-                item.setTitle(plugin.settings.dragGranularity === "line" ? t("handles.switchToParagraph") : t("handles.switchToLine"))
-                    .setIcon("layers")
-                    .onClick(async () => {
-                        plugin.settings.dragGranularity = plugin.settings.dragGranularity === "line" ? "paragraph" : "line";
-                        await plugin.saveSettings();
+                item.setTitle(t("menu.selectBlock"))
+                    .setIcon("text-select")
+                    .onClick(() => {
+                        selectWholeBlock(view, lineNo);
+                        view.focus();
                     });
             });
             menu.showAtMouseEvent(event);
@@ -207,12 +223,12 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         if (this.hoveredLine === null || !this.handleEl) return null;
         try {
             const line = view.state.doc.line(this.hoveredLine);
-            const coords = view.coordsAtPos(line.from);
+            const coords = measureBlockLayout(view).line(this.hoveredLine) ?? view.coordsAtPos(line.from);
             if (!coords) return null;
             const editorRect = view.dom.getBoundingClientRect();
             const scrollerRect = view.scrollDOM.getBoundingClientRect();
             if (coords.bottom <= scrollerRect.top || coords.top >= scrollerRect.bottom) return null;
-            const lineHeight = coords.bottom - coords.top;
+            const lineHeight = Math.min(view.defaultLineHeight, coords.bottom - coords.top);
             const handleHeight = this.handleEl.offsetHeight || 24;
             const mobile = this.handleEl.hasClass("is-mobile") || this.isMobileView();
             const fallbackWidth = plugin.settings.showAddButton ? (mobile ? 74 : 44) : (mobile ? 34 : 20);
@@ -349,6 +365,8 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
     }
 
     getLineAtClientPoint(view: EditorView, clientX: number, clientY: number): number | null {
+        const renderedLine = measureBlockLayout(view).lineAtY(clientY);
+        if (renderedLine !== null) return renderedLine;
         const rect = view.contentDOM.getBoundingClientRect();
         const clampedX = Math.min(Math.max(clientX, rect.left + 1), rect.right - 1);
         for (const x of [clampedX, rect.left + 5, rect.left + rect.width / 2]) {

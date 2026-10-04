@@ -1,8 +1,11 @@
 import { EditorView } from "@codemirror/view";
+import { Text } from "@codemirror/state";
 import { moment, Notice } from "obsidian";
 import type { TFile } from "obsidian";
 import NotionBlock from "./main";
 import { t } from "./locale/helpers";
+import { CALLOUT_HEADER, getBlockRanges } from "./blockRange";
+import { getBlockSource, getDragStructure, getWholeBlockRange, isDragList } from "./blockDrag";
 
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"]);
 
@@ -18,15 +21,11 @@ export function detectBlockType(lineText: string): string {
 }
 
 export function stripPrefix(lineText: string): string {
-    return lineText
-        .replace(/^#{1,6} /, "")
-        .replace(/^[-*+] \[[ x]\] /, "")
-        .replace(/^[-*+] /, "")
-        .replace(/^\d+\. /, "")
-        .replace(/^> \[![^\]]+\][+-]?\n?> ?/, "")
-        .replace(/^> /, "")
-        .replace(/^%%(.*)%%$/, "$1")
-        .trim();
+    const callout = lineText.match(CALLOUT_HEADER);
+    if (callout) return callout[3] ?? "";
+    const comment = lineText.match(/^%%(.*)%%$/);
+    if (comment) return comment[1];
+    return lineText.replace(/^([ \t]*)(?:#{1,6}(?:[ \t]+|$)|[-*+][ \t]+(?:\[[^\]]\](?:[ \t]+|$))?|\d+[.)][ \t]+|>[ \t]?)/, "$1");
 }
 
 export async function insertImageFiles(plugin: NotionBlock, view: EditorView, lineNo: number, files: File[]): Promise<void> {
@@ -89,41 +88,148 @@ function toEmbedLink(plugin: NotionBlock, file: TFile, sourcePath: string): stri
     return `!${plugin.app.fileManager.generateMarkdownLink(file, sourcePath)}`;
 }
 
-export function transformLine(view: EditorView, lineNo: number, targetType: string) {
-    const line = view.state.doc.line(lineNo);
-    const lineText = line.text;
-    const content = stripPrefix(lineText);
-    
-    let newText = "";
-    
-    if (targetType.startsWith("callout-")) {
-        const type = targetType.replace("callout-", "");
-        newText = `> [!${type}]\n> ${content}`;
-    } else {
-        switch (targetType) {
-            case "h1": newText = "# " + content; break;
-            case "h2": newText = "## " + content; break;
-            case "h3": newText = "### " + content; break;
-            case "bullet": 
-            case "toggle": newText = "- " + content; break;
-            case "numbered": newText = "1. " + content; break;
-            case "todo": newText = "- [ ] " + content; break;
-            case "blockquote": newText = "> " + content; break;
-            case "paragraph": newText = content; break;
-            case "code": newText = "```\n" + content + "\n```"; break;
-            case "math": newText = "$$\n" + content + "\n$$"; break;
-            case "divider": newText = "---"; break;
-            default: newText = content; break;
-        }
+interface ContentLine {
+    text: string;
+    preservePrefix: boolean;
+}
+
+function reindentContinuation(text: string, oldWidth: number, newWidth: number): string {
+    if (!text.trim()) return text;
+    let at = 0, width = 0;
+    while (at < text.length && width < oldWidth && /[ \t]/.test(text[at])) {
+        width += text[at] === "\t" ? 4 - width % 4 : 1;
+        at++;
     }
-    
-    view.dispatch({
-        changes: {
-            from: line.from,
-            to: line.to,
-            insert: newText
+    return " ".repeat(newWidth + Math.max(0, width - oldWidth)) + text.slice(at);
+}
+
+function transformContent(doc: Text, unwrapFences: boolean): ContentLine[] {
+    const result: ContentLine[] = [];
+    for (const block of getBlockRanges(doc)) {
+        const start = block.startLine, end = block.endLine;
+        const lines = Array.from({ length: end - start + 1 }, (_, i) => doc.line(start + i).text);
+        const preservePrefix = !["bullet", "numbered", "todo", "heading"].includes(block.type);
+        if (block.type === "callout" || block.type === "blockquote") {
+            for (const line of lines) {
+                const header = line.match(CALLOUT_HEADER);
+                if (header) {
+                    if (header[3]) result.push({ text: header[3], preservePrefix: true });
+                } else result.push({ text: line.replace(/^ {0,3}>[ \t]?/, ""), preservePrefix: true });
+            }
+        } else if (unwrapFences && start === block.startLine && end === block.endLine) {
+            const openingFence = block.type === "code" ? lines[0].match(/^ {0,3}(`{3,}|~{3,})/) : null;
+            if (openingFence) {
+                lines.shift();
+                const closingFence = (lines[lines.length - 1] ?? "").match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+                if (closingFence && closingFence[1][0] === openingFence[1][0]
+                    && closingFence[1].length >= openingFence[1].length) lines.pop();
+            } else if (block.type === "code") {
+                for (let i = 0; i < lines.length; i++) lines[i] = lines[i].replace(/^(?: {4}| {0,3}\t)/, "");
+            } else if (block.type === "math") {
+                lines[0] = lines[0].replace(/^ {0,3}\$\$[ \t]*/, "");
+                const last = lines.length - 1;
+                lines[last] = lines[last].replace(/[ \t]*\$\$[ \t]*$/, "");
+                if (lines.length > 1 && !lines[0]) lines.shift();
+                if (lines.length > 1 && !lines[lines.length - 1]) lines.pop();
+            } else if (block.type === "comment") {
+                lines[0] = lines[0].replace(/^ {0,3}%%[ \t]?/, "");
+                const last = lines.length - 1;
+                lines[last] = lines[last].replace(/[ \t]?%%[ \t]*$/, "");
+                if (lines.length > 1 && !lines[0]) lines.shift();
+                if (lines.length > 1 && !lines[lines.length - 1]) lines.pop();
+            } else if (block.type === "heading" && lines.length > 1) lines.pop();
+            result.push(...lines.map(text => ({ text, preservePrefix })));
+        } else result.push(...lines.map(text => ({ text, preservePrefix })));
+    }
+    return result.length ? result : [{ text: "", preservePrefix: true }];
+}
+
+export function transformLine(view: EditorView, lineNo: number, targetType: string): void {
+    const selected = getBlockSource(view.state, lineNo);
+    const original = selected.content;
+    const contentDoc = Text.of(original.split("\n"));
+    const block = getBlockRanges(contentDoc).find(block => block.from === 0 && block.to === contentDoc.length);
+    if (block?.type === targetType && (targetType === "math" || targetType === "comment"
+        || targetType === "code" && /^ {0,3}(?:`{3,}|~{3,})/.test(original))) return;
+    const callout = targetType.startsWith("callout-") ? targetType.slice(8) : null;
+    const wrap = callout !== null || targetType === "blockquote";
+    const contentLines = transformContent(contentDoc, !wrap);
+    const lines = contentLines.map(line => line.text);
+    let newText: string;
+    if (callout !== null) {
+        // 仅换 callout 类型时保留折叠状态、标题、正文及嵌套 Markdown。
+        const header = original.split("\n")[0].match(CALLOUT_HEADER);
+        if (header && block?.type === "callout") {
+            const sourceLines = original.split("\n");
+            sourceLines[0] = `> [!${callout}]${header[2]}${header[3] !== undefined ? ` ${header[3]}` : ""}`;
+            newText = sourceLines.join("\n");
+        } else newText = `> [!${callout}]\n` + lines.map(line => line ? `> ${line}` : ">").join("\n");
+    } else if (targetType === "blockquote") {
+        newText = lines.map(line => line ? `> ${line}` : ">").join("\n");
+    } else if (targetType === "code") {
+        const content = lines.join("\n");
+        const runs = content.match(/`{3,}/g) ?? [];
+        const fence = "`".repeat(Math.max(3, ...runs.map(run => run.length + 1)));
+        newText = `${fence}\n${content}\n${fence}`;
+    } else if (targetType === "math") {
+        newText = `$$\n${lines.join("\n")}\n$$`;
+    } else if (targetType === "comment") {
+        newText = `%%\n${lines.join("\n")}\n%%`;
+    } else if (targetType === "divider") {
+        newText = "---";
+    } else {
+        let number = 0;
+        const convertLine = ({ text: line, preservePrefix }: ContentLine): string => {
+            const content = preservePrefix ? line : stripPrefix(line);
+            const indent = content.match(/^[ \t]*/)?.[0] ?? "";
+            const body = content.slice(indent.length);
+            if (!body && contentLines.length > 1) return content;
+            switch (targetType) {
+                case "h1": return `${indent}# ${body}`;
+                case "h2": return `${indent}## ${body}`;
+                case "h3": return `${indent}### ${body}`;
+                case "bullet":
+                case "toggle": return `${indent}- ${body}`;
+                case "numbered": return `${indent}${++number}. ${body}`;
+                case "todo": {
+                    const status = line.match(/^[ \t]*[-*+][ \t]+\[([^\]])\]/)?.[1] ?? " ";
+                    return `${indent}- [${status}] ${body}`;
+                }
+                default: return content;
+            }
+        };
+        const convertedLines: string[] = [];
+        for (const node of getDragStructure(contentDoc)) {
+            if (!isDragList(node)) {
+                for (const line of transformContent(Text.of(node.lines), true)) convertedLines.push(convertLine(line));
+                continue;
+            }
+            for (const item of node.children) {
+                const first = convertLine({ text: item.lines[0], preservePrefix: false });
+                const head = first.match(/^([ \t]*(?:[-+*]|\d+[.)])[ \t]+)/)?.[1] ?? "";
+                const width = head.replace(/\t/g, "    ").length;
+                // 只改当前项标记；子列表和字面量块保留原有语法。
+                convertedLines.push(first);
+                for (const line of item.lines.slice(1)) {
+                    convertedLines.push(reindentContinuation(line, item.marker?.width ?? 0, width));
+                }
+            }
         }
+        newText = convertedLines.join("\n");
+    }
+    newText = newText.split("\n").map(line => selected.prefix + line).join("\n");
+    if (newText === selected.text) return;
+    view.dispatch({
+        changes: { from: selected.from, to: selected.to, insert: newText },
+        selection: { anchor: selected.from, head: selected.from + newText.length },
+        scrollIntoView: true,
+        userEvent: "transform.block"
     });
+}
+
+export function selectWholeBlock(view: EditorView, lineNo: number): void {
+    const block = getWholeBlockRange(view.state.doc, lineNo);
+    view.dispatch({ selection: { anchor: block.from, head: block.to }, scrollIntoView: true, userEvent: "select.block" });
 }
 
 export function insertBlock(plugin: NotionBlock, view: EditorView, lineNo: number, targetType: string) {

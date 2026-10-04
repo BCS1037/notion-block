@@ -7,7 +7,6 @@ import { MenuOrderDrag } from './menuOrder';
 export interface BlockPluginSettings {
     enabled: boolean;
     showAddButton: boolean;
-    dragGranularity: 'line' | 'paragraph';
     hoverDelay: number;
     hideDelay: number;
     dateFormat: string;
@@ -18,7 +17,6 @@ export interface BlockPluginSettings {
 export const DEFAULT_SETTINGS: BlockPluginSettings = {
     enabled: true,
     showAddButton: false,
-    dragGranularity: 'line',
     hoverDelay: 0,
     hideDelay: 200,
     dateFormat: 'YYYY-MM-DD',
@@ -61,18 +59,6 @@ export class BlockPluginSettingTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.showAddButton)
                 .onChange(async (value) => {
                     this.plugin.settings.showAddButton = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
-            .setName(t('settings.dragGranularity.name'))
-            .setDesc(t('settings.dragGranularity.desc'))
-            .addDropdown(dropdown => dropdown
-                .addOption('line', t('settings.dragGranularity.line'))
-                .addOption('paragraph', t('settings.dragGranularity.paragraph'))
-                .setValue(this.plugin.settings.dragGranularity)
-                .onChange(async (value: 'line' | 'paragraph') => {
-                    this.plugin.settings.dragGranularity = value;
                     await this.plugin.saveSettings();
                 }));
 

@@ -1,20 +1,26 @@
 import { EditorView } from "@codemirror/view";
 import { Component } from "obsidian";
-import NotionBlock from "./main";
+import { canDrop, getDragPath, getBlockSource, getDropEdit, getDropTarget, isDragList, isDragQuote } from "./blockDrag";
+import type { DragSource, DropTarget } from "./blockDrag";
+import { t } from "./locale/helpers";
+import { measureBlockLayout } from "./blockGeometry";
 
 export class DragManager extends Component {
     private ghostEl: HTMLElement | null = null;
     private indicatorEl: HTMLElement | null = null;
+    private containerEl: HTMLElement | null = null;
+    private labelEl: HTMLElement | null = null;
     private isDragging = false;
-    private startBlock: { from: number, to: number, text: string } | null = null;
+    private startBlock: DragSource | null = null;
     private currentTargetLine: number | null = null;
+    private currentTarget: DropTarget | null = null;
     private ownerDocument: Document;
     private ownerWindow: Window;
     private activePointerId: number | null = null;
     private pointerCaptureEl: Element | null = null;
     private dragEvents: Component | null = null;
 
-    constructor(private plugin: NotionBlock, private view: EditorView) {
+    constructor(private view: EditorView, private onStopped?: () => void) {
         super();
         this.ownerDocument = view.dom.ownerDocument;
         this.ownerWindow = this.ownerDocument.defaultView ?? activeWindow;
@@ -24,36 +30,10 @@ export class DragManager extends Component {
         this.stopDrag(false);
         this.isDragging = true;
         
-        // Clear any existing selection
+        // Resolve the CodeMirror selection before clearing the browser's visual selection.
+        this.startBlock = getBlockSource(this.view.state, lineNo);
         this.ownerWindow.getSelection()?.removeAllRanges();
-        
-        const doc = this.view.state.doc;
-        let fromPos, toPos, text;
-
-        if (this.plugin.settings.dragGranularity === "paragraph") {
-            // Find paragraph boundaries
-            let startLine = lineNo;
-            while (startLine > 1 && doc.line(startLine - 1).text.trim() !== "") {
-                startLine--;
-            }
-            let endLine = lineNo;
-            while (endLine < doc.lines && doc.line(endLine + 1).text.trim() !== "") {
-                endLine++;
-            }
-            
-            const startL = doc.line(startLine);
-            const endL = doc.line(endLine);
-            fromPos = startL.from;
-            toPos = endL.to;
-            text = doc.sliceString(fromPos, toPos);
-        } else {
-            const line = doc.line(lineNo);
-            fromPos = line.from;
-            toPos = line.to;
-            text = line.text;
-        }
-
-        this.startBlock = { from: fromPos, to: toPos, text: text };
+        const text = this.startBlock.text;
 
         // Create ghost element
         this.ghostEl = this.ownerDocument.body.createDiv({
@@ -66,11 +46,21 @@ export class DragManager extends Component {
         this.indicatorEl = this.ownerDocument.body.createDiv({
             cls: "block-drag-indicator"
         });
+        this.labelEl = this.indicatorEl.createSpan({ cls: "block-drag-label" });
+        this.containerEl = this.ownerDocument.body.createDiv({ cls: "block-drag-container" });
 
         this.dragEvents = this.addChild(new Component());
+        this.dragEvents.registerDomEvent(this.ownerDocument, "keydown", (event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            this.stopDrag(false);
+        }, true);
         if ("pointerId" in event) {
             this.activePointerId = event.pointerId;
             this.capturePointer(event, captureEl);
+            if (captureEl) this.dragEvents.registerDomEvent(captureEl, "lostpointercapture", (lost) => {
+                if (this.isDragging && lost.pointerId === this.activePointerId) this.stopDrag(false);
+            });
             this.dragEvents.registerDomEvent(this.ownerDocument, "pointermove", this.onPointerMove);
             // 句柄会拦截冒泡；在捕获阶段结束拖拽，保证松手后清理。
             this.dragEvents.registerDomEvent(this.ownerDocument, "pointerup", this.onPointerUp, true);
@@ -98,11 +88,25 @@ export class DragManager extends Component {
     private handleMove(point: { clientX: number; clientY: number }): void {
         this.updateGhostPosition(point.clientX, point.clientY);
 
-        const pos = this.view.posAtCoords({ x: point.clientX, y: point.clientY });
+        if (this.startBlock?.document !== this.view.state.doc) {
+            this.stopDrag(false);
+            return;
+        }
+        const rect = this.view.scrollDOM.getBoundingClientRect();
+        if (point.clientY < rect.top || point.clientY > rect.bottom || point.clientX < rect.left - 80 || point.clientX > rect.right) {
+            this.clearTarget();
+            return;
+        }
+        const renderedLine = measureBlockLayout(this.view).lineAtY(point.clientY);
+        if (renderedLine !== null) {
+            this.updateIndicator(renderedLine, point.clientY, point.clientX);
+            return;
+        }
+        const pos = this.view.posAtCoords({ x: Math.max(rect.left + 2, Math.min(rect.right - 2, point.clientX)), y: point.clientY });
         if (pos !== null) {
             const line = this.view.state.doc.lineAt(pos);
-            this.updateIndicator(line.number, point.clientY);
-        }
+            this.updateIndicator(line.number, point.clientY, point.clientX);
+        } else this.clearTarget();
     }
 
     private onMouseUp = (_event: MouseEvent) => {
@@ -111,6 +115,7 @@ export class DragManager extends Component {
 
     private onPointerUp = (event: PointerEvent): void => {
         if (event.pointerId !== this.activePointerId) return;
+        event.preventDefault();
         this.stopDrag();
     };
 
@@ -121,14 +126,11 @@ export class DragManager extends Component {
 
     private stopDrag(commit = true) {
         if (!this.isDragging) return;
-
-        if (commit && this.startBlock !== null && this.currentTargetLine !== null) {
-            this.moveBlock(this.startBlock, this.currentTargetLine);
-        }
-
+        const source = this.startBlock, target = this.currentTarget;
         this.isDragging = false;
         this.startBlock = null;
         this.currentTargetLine = null;
+        this.currentTarget = null;
 
         if (this.ghostEl) {
             this.ghostEl.remove();
@@ -138,11 +140,16 @@ export class DragManager extends Component {
             this.indicatorEl.remove();
             this.indicatorEl = null;
         }
+        this.containerEl?.remove();
+        this.containerEl = null;
+        this.labelEl = null;
 
         this.releasePointer();
         if (this.dragEvents) this.removeChild(this.dragEvents);
         this.dragEvents = null;
         this.ownerDocument.body.removeClass("is-dragging-block");
+        this.onStopped?.();
+        if (commit && source && target) this.moveBlock(source, target);
     }
 
     onunload(): void {
@@ -176,94 +183,84 @@ export class DragManager extends Component {
     private updateGhostPosition(x: number, y: number) {
         if (this.ghostEl) {
             this.ghostEl.setCssStyles({
-                left: `${x + 10}px`,
-                top: `${y + 10}px`
+                left: `${Math.max(4, Math.min(x + 10, this.ownerWindow.innerWidth - this.ghostEl.offsetWidth - 4))}px`,
+                top: `${Math.max(4, Math.min(y + 10, this.ownerWindow.innerHeight - this.ghostEl.offsetHeight - 4))}px`
             });
         }
     }
 
-    private updateIndicator(lineNo: number, mouseY: number) {
+    private clearTarget(): void {
+        this.currentTarget = null;
+        this.currentTargetLine = null;
+        this.indicatorEl?.setCssStyles({ display: "none" });
+        this.containerEl?.setCssStyles({ display: "none" });
+    }
+
+    private updateIndicator(lineNo: number, mouseY: number, mouseX?: number) {
         if (!this.indicatorEl) return;
 
         try {
             const line = this.view.state.doc.line(lineNo);
-            const coords = this.view.coordsAtPos(line.from);
-            
-            if (coords) {
-                // Use coordsAtPos for the end of line to determine full line height
-                const endCoords = this.view.coordsAtPos(line.to);
-                
-                let top = coords.top;
-                let targetLine = lineNo;
-
-                if (endCoords) {
-                    const lineBottom = endCoords.bottom;
-                    const midPoint = coords.top + (lineBottom - coords.top) / 2;
-                    if (mouseY > midPoint) {
-                        top = lineBottom;
-                        targetLine = lineNo + 1;
-                    } else {
-                        top = coords.top;
-                        targetLine = lineNo;
-                    }
-                }
-
-                this.currentTargetLine = targetLine;
-
-                this.indicatorEl.setCssStyles({
-                    top: `${top}px`,
-                    left: `${coords.left}px`,
-                    width: `${this.view.contentDOM.clientWidth}px`,
-                    display: "block"
-                });
+            const layout = measureBlockLayout(this.view);
+            const coords = layout.line(lineNo);
+            if (!coords) { this.clearTarget(); return; }
+            const endCoords = layout.rendered(lineNo) ? coords : this.view.coordsAtPos(line.to) ?? coords;
+            const after = mouseY > coords.top + (endCoords.bottom - coords.top) / 2;
+            let left = coords.left;
+            let label = "";
+            const path = getDragPath(this.view.state.doc, lineNo), root = path[0];
+            const bounds = layout.node(root);
+            const first = bounds ?? coords;
+            const last = bounds ?? endCoords;
+            const containers = path.filter(node => isDragList(node) || isDragQuote(node));
+            const inside = mouseX !== undefined && containers.length > 0 && mouseX >= first.left - 8
+                && mouseY > first.top + 3 && mouseY < last.bottom - 3;
+            let indent = 0, quoteOnly = false;
+            const item = [...path].reverse().find(node => node.item);
+            if (inside && item?.marker && mouseX !== undefined) {
+                const raw = this.view.state.doc.line(item.startLine).text;
+                const prefix = raw.match(/^[ \t]*(?:>[ \t]*)*(?:[-+*]|\d+[.)])[ \t]+/)?.[0].length ?? 0;
+                const contentCoords = layout.itemContent(item) ?? this.view.coordsAtPos(item.from + prefix) ?? coords;
+                const step = Math.max(16, this.view.defaultCharacterWidth * item.marker.width);
+                indent = mouseX >= contentCoords.left + step ? 1 : mouseX < contentCoords.left - step * 0.8 ? -1 : 0;
+                quoteOnly = indent < 0 && path.some(isDragQuote) && !path.some(node => node.item && node !== item);
+                left = contentCoords.left + (indent > 0 ? step : indent < 0 ? -step : 0);
             }
+            const target = getDropTarget(this.view.state.doc, lineNo, after, inside, indent, quoteOnly);
+            if (target.mode === "list") label = t(indent > 0 ? "drag.nest" : indent < 0 ? "drag.outdent" : "drag.list");
+            if (target.mode === "quote") label = t(target.container?.type === "callout" ? "drag.callout" : "drag.quote");
+
+            if (this.startBlock && !canDrop(this.startBlock, target)) { this.clearTarget(); return; }
+            this.currentTarget = target;
+            this.currentTargetLine = target.line;
+            const doc = this.view.state.doc;
+            const edge = target.line > doc.lines ? layout.line(doc.lines) : layout.line(target.line);
+            const top = target.line > doc.lines ? (edge ?? endCoords).bottom : (edge ?? coords).top;
+            const contentRect = this.view.contentDOM.getBoundingClientRect();
+            left = Math.max(contentRect.left, Math.min(left, contentRect.right - 24));
+            if (target.mode === "outside") left = contentRect.left;
+            this.indicatorEl.setCssStyles({ top: `${top}px`, left: `${left}px`, width: `${Math.max(24, contentRect.right - left)}px`, display: "block" });
+            this.indicatorEl.toggleClass("is-container-drop", target.mode !== "outside");
+            this.labelEl?.setText(label);
+            if (target.container) {
+                const start = layout.node(target.container) ?? coords;
+                const end = start;
+                const viewport = this.view.scrollDOM.getBoundingClientRect();
+                const highlightTop = Math.max(viewport.top, start.top);
+                this.containerEl?.setCssStyles({ display: "block", left: `${Math.max(contentRect.left, start.left - 4)}px`, top: `${highlightTop}px`,
+                    width: `${Math.max(24, contentRect.right - Math.max(contentRect.left, start.left - 4))}px`,
+                    height: `${Math.max(0, Math.min(viewport.bottom, end.bottom) - highlightTop)}px` });
+            } else this.containerEl?.setCssStyles({ display: "none" });
         } catch {
-            // Ignore if line doesn't exist
+            // A folded/offscreen line can disappear during measurement; never keep a stale drop.
+            this.clearTarget();
         }
     }
 
-    private moveBlock(startBlock: { from: number, to: number, text: string }, toLineNo: number) {
+    private moveBlock(startBlock: DragSource, target: DropTarget | number) {
         const doc = this.view.state.doc;
-        const textToMove = startBlock.text;
-
-        // Handle insertion at the end of the document
-        if (toLineNo > doc.lines) {
-            this.view.dispatch({
-                changes: [
-                    { from: doc.length, insert: "\n" + textToMove },
-                    { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
-                ],
-                scrollIntoView: true,
-                userEvent: "move.block"
-            });
-            return;
-        }
-
-        const toLine = doc.line(toLineNo);
-
-        // If dropping inside the same block, do nothing
-        if (toLine.from >= startBlock.from && toLine.to <= startBlock.to) return;
-        
-        if (startBlock.from < toLine.from) {
-            // Moving down
-            this.view.dispatch({
-                changes: [
-                    { from: toLine.from, insert: textToMove + "\n" }, // Insert before the target line
-                    { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
-                ],
-                scrollIntoView: true,
-                userEvent: "move.block"
-            });
-        } else {
-            // Moving up
-            this.view.dispatch({
-                changes: [
-                    { from: toLine.from, insert: textToMove + "\n" },
-                    { from: startBlock.from, to: Math.min(startBlock.to + 1, doc.length) }
-                ],
-                scrollIntoView: true,
-                userEvent: "move.block"
-            });
-        }
+        const drop = typeof target === "number" ? { line: target, mode: "outside" as const, prefix: "", container: null, item: null, marker: null, depth: 0 } : target;
+        const edit = getDropEdit(doc, startBlock, drop);
+        if (edit) this.view.dispatch({ ...edit, scrollIntoView: true, userEvent: "move.block" });
     }
 }

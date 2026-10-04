@@ -1,7 +1,7 @@
 import { Component, Notice, setIcon } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import NotionBlock from "./main";
-import { transformLine } from "./blockTransform";
+import { selectWholeBlock, transformLine } from "./blockTransform";
 import { t } from "./locale/helpers";
 import { NotionBlockInsertActions } from "./notionInsertMenu";
 import { MENU_COMMANDS, MenuGroup, reorderMenuCommands, setMenuGroupCollapsed } from "./menuLayout";
@@ -295,17 +295,9 @@ class NotionBlockActionMenu extends Component {
 
     private getBlockActionItems(): ActionItem[] {
         return [
+            { id: "select-block", label: t("menu.selectBlock"), icon: "text-select", action: () => selectWholeBlock(this.view, this.lineNo) },
             { id: "copy-link", label: t("menu.copyLink"), icon: "link", shortcut: "⌘⌃L", action: () => this.copyBlockLink() },
             { id: "delete", label: t("menu.delete"), icon: "trash-2", shortcut: "Del", action: () => this.deleteLine() },
-            {
-                id: "toggle-drag-granularity",
-                label: this.plugin.settings.dragGranularity === "line" ? t("handles.switchToParagraph") : t("handles.switchToLine"),
-                icon: "layers",
-                action: async () => {
-                    this.plugin.settings.dragGranularity = this.plugin.settings.dragGranularity === "line" ? "paragraph" : "line";
-                    await this.plugin.saveSettings();
-                }
-            },
         ];
     }
 
