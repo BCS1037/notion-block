@@ -1,8 +1,4 @@
 const en = {
-    "settings.enablePlugin.name": "Enable plugin",
-    "settings.enablePlugin.desc": "Enable or disable the block plugin.",
-    "settings.showAddButton.name": "Show separate add button",
-    "settings.showAddButton.desc": "Show a + button beside the block handle. Add commands are always available in the block menu.",
     "settings.menuLayout.name": "Menu commands",
     "settings.menuLayout.desc": "Choose which commands appear in the main menu or under More. Drag the handles here or in the popup to reorder commands within each group. Changes save automatically.",
     "settings.menuLayout.position": "Command placement and order",
@@ -18,7 +14,6 @@ const en = {
     "settings.timeFormat.name": "Time format",
     "settings.timeFormat.desc": "Format for current time.",
     
-    "handles.addBlock": "Add block below",
     "handles.dragReorder": "Drag to reorder",
     "handles.blockActions": "Click for block actions; hold to drag",
     "drag.list": "Add list item",

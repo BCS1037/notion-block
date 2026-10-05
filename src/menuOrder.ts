@@ -6,7 +6,6 @@ interface DragState {
     group: MenuGroup;
     container: HTMLElement;
     row: HTMLElement;
-    grip: HTMLButtonElement;
     rows: HTMLElement[];
     pointerId: number;
     x: number;
@@ -45,10 +44,7 @@ export class MenuOrderDrag extends Component {
             event.preventDefault();
             event.stopPropagation();
         });
-        this.registerDomEvent(grip, "pointerdown", event => this.start(event, row, grip, group));
-        this.registerDomEvent(grip, "lostpointercapture", event => {
-            if (event.pointerId === this.drag?.pointerId) this.cancel();
-        });
+        this.registerDomEvent(grip, "pointerdown", event => this.start(event, row, group));
         this.registerDomEvent(grip, "keydown", event => {
             if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
             event.preventDefault();
@@ -84,19 +80,23 @@ export class MenuOrderDrag extends Component {
         return this.getRows(container, group).map(row => row.dataset.itemId ?? "");
     }
 
-    private start(event: PointerEvent, row: HTMLElement, grip: HTMLButtonElement, group: MenuGroup): void {
+    private start(event: PointerEvent, row: HTMLElement, group: MenuGroup): void {
         if (event.button !== 0 || this.drag || !row.parentElement) return;
         event.preventDefault();
         event.stopPropagation();
         this.suppressClick = false;
         const container = row.parentElement;
         this.drag = {
-            group, container, row, grip, rows: this.getRows(container, group),
+            group, container, row, rows: this.getRows(container, group),
             pointerId: event.pointerId, x: event.clientX, y: event.clientY, started: false
         };
-        try { grip.setPointerCapture(event.pointerId); } catch { /* 合成事件可能没有活动指针。 */ }
+        // 命令行会在预览中移动；固定列表持有捕获，避免 DOM 重排被误判为取消。
+        try { container.setPointerCapture(event.pointerId); } catch { /* 合成事件可能没有活动指针。 */ }
         const doc = row.ownerDocument;
         this.dragEvents = this.addChild(new Component());
+        this.dragEvents.registerDomEvent(container, "lostpointercapture", lost => {
+            if (lost.target === container && lost.pointerId === this.drag?.pointerId) this.cancel();
+        });
         this.dragEvents.registerDomEvent(doc, "pointermove", move => this.move(move), true);
         this.dragEvents.registerDomEvent(doc, "pointerup", up => {
             if (up.pointerId !== this.drag?.pointerId) return;
@@ -150,7 +150,7 @@ export class MenuOrderDrag extends Component {
         const changed = ids.some((id, index) => id !== drag.rows[index].dataset.itemId);
         this.drag = null;
         drag.row.removeClass("is-sorting");
-        try { drag.grip.releasePointerCapture(drag.pointerId); } catch { /* 已释放或合成指针。 */ }
+        try { drag.container.releasePointerCapture(drag.pointerId); } catch { /* 已释放或合成指针。 */ }
         if (this.dragEvents) this.removeChild(this.dragEvents);
         this.dragEvents = null;
         this.suppressClick = drag.started;
