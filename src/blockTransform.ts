@@ -147,7 +147,9 @@ function transformContent(doc: Text, unwrapFences: boolean): ContentLine[] {
 
 export function transformLine(view: EditorView, lineNo: number, targetType: string): void {
     const selected = getBlockSource(view.state, lineNo);
-    let original = selected.content;
+    const selectedContent: unknown = selected.content;
+    if (typeof selectedContent !== "string") return;
+    let original = selectedContent;
     const anchored = getBlockIds(original);
     const listTarget = ["bullet", "numbered", "todo", "toggle"].includes(targetType);
     if (anchored.length && (["comment", "divider"].includes(targetType) || anchored.length > 1 && !listTarget)) {
@@ -160,9 +162,18 @@ export function transformLine(view: EditorView, lineNo: number, targetType: stri
         const node = selected.nodes[0];
         const item = node.item || isDragList(node) && node.children.length === 1;
         const lines = original.split("\n"), at = item ? 0 : lines.length - 1;
-        if (item || ["paragraph", "heading", "embed"].includes(selected.type)) {
-            const inline = lines[at].match(/[ \t]+\^([A-Za-z0-9-]+)[ \t]*$/);
-            if (inline) { anchor = inline[1]; lines[at] = lines[at].slice(0, inline.index); original = lines.join("\n"); }
+        const selectedType: unknown = selected.type;
+        if (item || selectedType === "paragraph" || selectedType === "heading" || selectedType === "embed") {
+            const sourceLine = lines[at];
+            if (typeof sourceLine !== "string") return;
+            const inline = /[ \t]+\^([A-Za-z0-9-]+)[ \t]*$/.exec(sourceLine);
+            if (inline) {
+                const blockId = inline[1];
+                if (typeof blockId !== "string") return;
+                anchor = blockId;
+                lines[at] = sourceLine.slice(0, inline.index);
+                original = lines.join("\n");
+            }
         }
     }
     if (anchored.length && !anchor && (targetType.startsWith("callout-")

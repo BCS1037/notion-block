@@ -6,7 +6,10 @@ import { EditorView, WidgetType } from '@codemirror/view';
 
 export class ExampleWidget extends WidgetType {
 	toDOM(view: EditorView): HTMLElement {
-		const span = view.dom.ownerDocument.createElement('span');
+		const ownerDocument = view.dom.ownerDocument as Document & {
+			win: Window & { createSpan: () => HTMLSpanElement };
+		};
+		const span = ownerDocument.win.createSpan();
 		span.innerText = '\u{1F449}'; // 👉
 		span.className = '{{PLUGIN_ID}}-widget';
 		return span;

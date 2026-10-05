@@ -12,10 +12,7 @@ const localeMap: Record<string, Record<string, string>> = {
 };
 
 const getLocale = (): Record<string, string> => {
-    const detectedLanguage = typeof getLanguage === "function"
-        ? getLanguage()
-        : window.localStorage?.getItem("language");
-    const language = (detectedLanguage || "en").trim().toLowerCase();
+    const language = (getLanguage() || "en").trim().toLowerCase();
     return localeMap[language] || localeMap[language.split("-")[0]] || en;
 };
 

@@ -1,0 +1,3 @@
+[submodule "obsidian-releases"]
+	path = obsidian-releases
+	url = https://github.com/BCS1037/obsidian-releases.git

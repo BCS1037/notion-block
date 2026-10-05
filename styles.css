@@ -61,7 +61,7 @@
     padding: 0;
     margin: -1px;
     overflow: hidden;
-    clip-path: inset(50%);
+    clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
 }
@@ -219,6 +219,18 @@
     padding: 8px 12px;
     border: 1px solid var(--background-modifier-border);
     border-radius: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.wk-nb-menu-settings-declarative {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.wk-nb-menu-settings-declarative .setting-item-control {
+    display: block;
+    width: 100%;
 }
 
 .wk-nb-menu-settings-group > summary {
