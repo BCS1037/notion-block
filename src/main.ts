@@ -2,9 +2,11 @@ import { Plugin } from 'obsidian';
 import { BlockPluginSettings, DEFAULT_SETTINGS, BlockPluginSettingTab } from './settings';
 import { blockHandlesExtension } from './blockHandles';
 import { MenuLayout, normalizeMenuLayout } from './menuLayout';
+import { CrossDocumentDrag } from './crossDocument';
 
 export default class NotionBlock extends Plugin {
     settings: BlockPluginSettings;
+    transfers: CrossDocumentDrag;
     private settingsSaveQueue: Promise<void> = Promise.resolve();
     private savedMenuLayout: MenuLayout = normalizeMenuLayout();
 
@@ -12,7 +14,8 @@ export default class NotionBlock extends Plugin {
         await this.loadSettings();
 
         // Register the CodeMirror 6 extension for hover handles
-        this.registerEditorExtension([blockHandlesExtension(this)]);
+        this.transfers = this.addChild(new CrossDocumentDrag(this.app));
+        this.registerEditorExtension([blockHandlesExtension(this), this.transfers.extension()]);
 
         // Add settings tab
         this.addSettingTab(new BlockPluginSettingTab(this.app, this));

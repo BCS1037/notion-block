@@ -1,6 +1,6 @@
 import { EditorState, Text } from "@codemirror/state";
 import type { ChangeSpec } from "@codemirror/state";
-import { CALLOUT_HEADER, getBlockRanges } from "./blockRange";
+import { CALLOUT_HEADER, STANDALONE_BLOCK_ID, getBlockRanges } from "./blockRange";
 import type { BlockRange, MarkdownBlockType } from "./blockRange";
 
 interface ListMarker {
@@ -102,23 +102,26 @@ function parseScope(doc: Text, lines: readonly string[], startLine: number, pref
     return ranges.map(block => {
         const first = startLine + block.startLine - 1, last = startLine + block.endLine - 1;
         const content = lines.slice(block.startLine - 1, block.endLine);
+        const anchor = content.findIndex(text => STANDALONE_BLOCK_ID.test(text));
+        const body = anchor < 0 ? content : content.slice(0, anchor);
+        if (anchor >= 0) while (body.length && !body[body.length - 1].trim()) body.pop();
         const node: DragNode = {
             from: doc.line(first).from, to: doc.line(last).to, startLine: first, endLine: last,
             type: block.type, item: false, parent, children: [], prefix, lines: content, marker: marker(content[0])
         };
         if (isDragQuote(node)) {
             const header = node.type === "callout" ? 1 : 0;
-            node.children = parseScope(doc, content.slice(header).map(line => line.replace(/^ {0,3}>[ \t]?/, "")),
+            node.children = parseScope(doc, body.slice(header).map(line => line.replace(/^ {0,3}>[ \t]?/, "")),
                 first + header, prefix + "> ", node);
         } else if (isDragList(node) && node.marker) {
             const starts = [0];
-            for (let i = 1; i < content.length; i++) {
-                const next = marker(content[i]);
+            for (let i = 1; i < body.length; i++) {
+                const next = marker(body[i]);
                 if (next?.indent === node.marker.indent) starts.push(i);
             }
             node.children = starts.map((at, index) => {
-                const end = (starts[index + 1] ?? content.length) - 1;
-                const itemLines = content.slice(at, end + 1);
+                const end = (starts[index + 1] ?? body.length) - 1;
+                const itemLines = body.slice(at, end + 1);
                 const head = marker(itemLines[0]);
                 const item: DragNode = {
                     from: doc.line(first + at).from, to: doc.line(first + end).to,
@@ -334,9 +337,9 @@ function allLists(nodes: readonly DragNode[]): DragNode[] {
     return nodes.reduce<DragNode[]>((result, node) => [...result, ...(isDragList(node) ? [node] : []), ...allLists(node.children)], []);
 }
 
-function affectedLists(source: DragSource, target: DropTarget): Set<DragNode> {
+function affectedLists(source: DragSource | null, target: DropTarget): Set<DragNode> {
     const result = new Set<DragNode>();
-    for (const node of source.nodes) {
+    for (const node of source?.nodes ?? []) {
         if (isDragList(node)) result.add(node);
         for (let parent = node.parent; parent; parent = parent.parent) if (isDragList(parent)) result.add(parent);
     }
@@ -345,6 +348,7 @@ function affectedLists(source: DragSource, target: DropTarget): Set<DragNode> {
 }
 
 function renumber(lines: MovedLine[], original: Text, affected: Set<DragNode>, target: DropTarget): void {
+    if (!lines.length) return;
     const doc = Text.of(lines.map(line => line.text));
     for (const list of allLists(getDragStructure(doc)).reverse()) {
         if (list.marker?.number === null || list.marker?.number === undefined) continue;
@@ -380,6 +384,7 @@ function renumber(lines: MovedLine[], original: Text, affected: Set<DragNode>, t
 }
 
 export function canDrop(source: DragSource, target: DropTarget): boolean {
+    if (target.mode !== "outside" && source.content.split("\n").some(line => STANDALONE_BLOCK_ID.test(line))) return false;
     if (target.item && target.item.startLine >= source.startLine && target.item.endLine <= source.endLine) return false;
     if (target.container && target.container.startLine >= source.startLine && target.container.endLine <= source.endLine) return false;
     return target.line <= source.startLine || target.line > source.endLine;
@@ -388,15 +393,25 @@ export function canDrop(source: DragSource, target: DropTarget): boolean {
 /** Produce one atomic document change, including local numbering and container prefixes. */
 export function getDropEdit(doc: Text, source: DragSource, target: DropTarget): DropEdit | null {
     if (doc !== source.document || !canDrop(source, target)) return null;
-    let content = target.mode === "list" && target.marker ? adoptList(source.content, target.marker) : source.content.split("\n");
+    return dropEdit(doc, source.content, target, source);
+}
+
+/** Insert into another document using the same container and numbering rules. */
+export function getInsertEdit(doc: Text, text: string, target: DropTarget): DropEdit | null {
+    return dropEdit(doc, text, target, null);
+}
+
+function dropEdit(doc: Text, text: string, target: DropTarget, source: DragSource | null): DropEdit | null {
+    let content = target.mode === "list" && target.marker ? adoptList(text, target.marker) : text.split("\n");
     content = content.map(text => target.prefix + text);
-    if ((target.line === source.startLine || target.line === source.endLine + 1) && content.join("\n") === source.text) return null;
+    if (source && (target.line === source.startLine || target.line === source.endLine + 1) && content.join("\n") === source.text) return null;
     const lines: MovedLine[] = Array.from({ length: doc.lines }, (_, i) => ({ text: doc.line(i + 1).text, origin: i + 1, inserted: false }));
-    const count = source.endLine - source.startLine + 1;
-    lines.splice(source.startLine - 1, count);
-    let at = target.line - 1 - (target.line > source.endLine ? count : 0);
+    if (!source && doc.length === 0) lines.length = 0;
+    const count = source ? source.endLine - source.startLine + 1 : 0;
+    if (source) lines.splice(source.startLine - 1, count);
+    let at = target.line - 1 - (source && target.line > source.endLine ? count : 0);
     at = Math.max(0, Math.min(at, lines.length));
-    const moved = content.map((text, i) => ({ text, origin: source.startLine + i <= source.endLine ? source.startLine + i : null, inserted: true }));
+    const moved = content.map((text, i) => ({ text, origin: source && source.startLine + i <= source.endLine ? source.startLine + i : null, inserted: true }));
     // Markdown lazy continuations would absorb a paragraph dropped just outside a list/quote.
     if (target.mode === "outside") {
         const previous = lines[at - 1]?.text ?? "";
@@ -407,6 +422,8 @@ export function getDropEdit(doc: Text, source: DragSource, target: DropTarget): 
         const next = lines[at]?.text ?? "";
         if (content[content.length - 1]?.trim() && next.trim() && /^ {0,3}>/.test(content[content.length - 1])
             && /^ {0,3}>/.test(next) && !CALLOUT_HEADER.test(next)) moved.push({ text: "", origin: null, inserted: false });
+        if (!source && previous.trim() && moved[0]?.text.trim()) moved.unshift({ text: "", origin: null, inserted: false });
+        if (!source && next.trim() && moved[moved.length - 1]?.text.trim()) moved.push({ text: "", origin: null, inserted: false });
     }
     lines.splice(at, 0, ...moved);
     renumber(lines, doc, affectedLists(source, target), target);
@@ -419,4 +436,15 @@ export function getDropEdit(doc: Text, source: DragSource, target: DropTarget): 
     const position = (line: number): number => lines.slice(0, line).reduce((sum, item) => sum + item.text.length + 1, 0);
     return { changes: { from, to: oldTo, insert: after.slice(from, newTo) },
         selection: { anchor: position(firstMoved), head: position(lastMoved) + lines[lastMoved].text.length } };
+}
+
+export function getRemoveEdit(doc: Text, source: DragSource): DropEdit | null {
+    if (doc !== source.document) return null;
+    const lines: MovedLine[] = Array.from({ length: doc.lines }, (_, i) => ({ text: doc.line(i + 1).text, origin: i + 1, inserted: false }));
+    lines.splice(source.startLine - 1, source.endLine - source.startLine + 1);
+    const outside: DropTarget = { line: 1, mode: "outside", prefix: "", container: null, item: null, marker: null, depth: 0 };
+    renumber(lines, doc, affectedLists(source, outside), outside);
+    const after = lines.map(line => line.text).join("\n");
+    if (after === doc.toString()) return null;
+    return { changes: { from: 0, to: doc.length, insert: after }, selection: { anchor: Math.min(source.from, after.length), head: Math.min(source.from, after.length) } };
 }

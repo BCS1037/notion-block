@@ -1,6 +1,6 @@
 {
 	"name": "notion-block",
-	"version": "1.6.0",
+	"version": "1.7.0",
 	"description": "Notion-like block interactions for Live Preview.",
 	"main": "main.js",
 	"scripts": {
@@ -29,6 +29,7 @@
 		"typescript-eslint": "^8.71.0"
 	},
 	"dependencies": {
+		"@codemirror/commands": "^6.11.1",
 		"@codemirror/language": "^6.12.3",
 		"@codemirror/state": "^6.6.0",
 		"@codemirror/view": "^6.42.1",
