@@ -4,6 +4,10 @@ import { t } from './locale/helpers';
 import { MENU_COMMANDS, MenuGroup, MenuLayout, normalizeMenuLayout, reorderMenuCommands, setMenuCommandExpanded } from './menuLayout';
 import { MenuOrderDrag } from './menuOrder';
 
+// Moment format tokens are case-sensitive, so these are technical patterns rather than sentence-case labels.
+const DATE_FORMAT_PLACEHOLDER = 'YYYY-MM-DD';
+const TIME_FORMAT_PLACEHOLDER = 'HH:mm';
+
 export interface BlockPluginSettings {
     enabled: boolean;
     showAddButton: boolean;
@@ -24,6 +28,20 @@ export const DEFAULT_SETTINGS: BlockPluginSettings = {
     menuLayout: normalizeMenuLayout(),
 };
 
+type DeclarativeControl =
+    | { type: 'toggle'; key: 'enabled' | 'showAddButton'; defaultValue: boolean }
+    | { type: 'slider'; key: 'hoverDelay' | 'hideDelay'; defaultValue: number; min: number; max: number; step: number }
+    | { type: 'text'; key: 'dateFormat' | 'timeFormat'; defaultValue: string; placeholder: string };
+
+type DeclarativeSettingDefinition = {
+    name: string;
+    desc?: string;
+    aliases?: string[];
+} & (
+    | { control: DeclarativeControl }
+    | { render: (setting: Setting) => void | (() => void) }
+);
+
 export class BlockPluginSettingTab extends PluginSettingTab {
     plugin: NotionBlock;
     private settingsEvents: Component | null = null;
@@ -34,13 +52,94 @@ export class BlockPluginSettingTab extends PluginSettingTab {
         this.plugin = plugin;
     }
 
+    getSettingDefinitions(): DeclarativeSettingDefinition[] {
+        const commandAliases = [
+            ...Object.values(MENU_COMMANDS).flatMap(commands => commands.map(command => t(command.labelKey))),
+        ];
+        return [
+            {
+                name: t('settings.enablePlugin.name'),
+                desc: t('settings.enablePlugin.desc'),
+                control: { type: 'toggle', key: 'enabled', defaultValue: DEFAULT_SETTINGS.enabled },
+            },
+            {
+                name: t('settings.showAddButton.name'),
+                desc: t('settings.showAddButton.desc'),
+                control: { type: 'toggle', key: 'showAddButton', defaultValue: DEFAULT_SETTINGS.showAddButton },
+            },
+            {
+                name: t('settings.menuLayout.name'),
+                desc: t('settings.menuLayout.desc'),
+                aliases: commandAliases,
+                render: setting => this.renderDeclarativeMenuLayout(setting),
+            },
+            {
+                name: t('settings.hoverDelay.name'),
+                desc: t('settings.hoverDelay.desc'),
+                control: { type: 'slider', key: 'hoverDelay', defaultValue: DEFAULT_SETTINGS.hoverDelay, min: 0, max: 500, step: 50 },
+            },
+            {
+                name: t('settings.hideDelay.name'),
+                desc: t('settings.hideDelay.desc'),
+                control: { type: 'slider', key: 'hideDelay', defaultValue: DEFAULT_SETTINGS.hideDelay, min: 0, max: 1000, step: 50 },
+            },
+            {
+                name: t('settings.dateFormat.name'),
+                desc: t('settings.dateFormat.desc'),
+                control: { type: 'text', key: 'dateFormat', defaultValue: DEFAULT_SETTINGS.dateFormat, placeholder: DATE_FORMAT_PLACEHOLDER },
+            },
+            {
+                name: t('settings.timeFormat.name'),
+                desc: t('settings.timeFormat.desc'),
+                control: { type: 'text', key: 'timeFormat', defaultValue: DEFAULT_SETTINGS.timeFormat, placeholder: TIME_FORMAT_PLACEHOLDER },
+            },
+        ];
+    }
+
+    getControlValue(key: string): unknown {
+        switch (key) {
+            case 'enabled': return this.plugin.settings.enabled;
+            case 'showAddButton': return this.plugin.settings.showAddButton;
+            case 'hoverDelay': return this.plugin.settings.hoverDelay;
+            case 'hideDelay': return this.plugin.settings.hideDelay;
+            case 'dateFormat': return this.plugin.settings.dateFormat;
+            case 'timeFormat': return this.plugin.settings.timeFormat;
+            default: return undefined;
+        }
+    }
+
+    async setControlValue(key: string, value: unknown): Promise<void> {
+        switch (key) {
+            case 'enabled':
+            case 'showAddButton':
+                if (typeof value !== 'boolean') return;
+                this.plugin.settings[key] = value;
+                break;
+            case 'hoverDelay':
+                if (typeof value !== 'number' || !Number.isFinite(value)) return;
+                this.plugin.settings.hoverDelay = Math.min(500, Math.max(0, Math.round(value / 50) * 50));
+                break;
+            case 'hideDelay':
+                if (typeof value !== 'number' || !Number.isFinite(value)) return;
+                this.plugin.settings.hideDelay = Math.min(1000, Math.max(0, Math.round(value / 50) * 50));
+                break;
+            case 'dateFormat':
+            case 'timeFormat':
+                if (typeof value !== 'string') return;
+                this.plugin.settings[key] = value;
+                break;
+            default:
+                return;
+        }
+        await this.plugin.saveSettings();
+    }
+
     display(): void {
         const { containerEl } = this;
 
         this.hide();
         containerEl.empty();
         this.settingsEvents = this.plugin.addChild(new Component());
-        const lifetime = this.settingsEvents;
 
         new Setting(containerEl)
             .setName(t('settings.enablePlugin.name'))
@@ -65,22 +164,7 @@ export class BlockPluginSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(t('settings.menuLayout.name'))
             .setDesc(t('settings.menuLayout.desc'));
-        (["insert", "transform"] as MenuGroup[]).forEach(group => {
-            const section = containerEl.createEl('details', { cls: 'wk-nb-menu-settings-group' });
-            section.createEl('summary', { text: t(group === 'insert' ? 'menu.addInsert' : 'menu.turnInto') });
-            new Setting(section)
-                .setName(t('settings.menuLayout.position'))
-                .addExtraButton(button => {
-                    button.setIcon('rotate-ccw').onClick(async () => {
-                        const layout = normalizeMenuLayout(this.plugin.settings.menuLayout);
-                        layout[group] = normalizeMenuLayout()[group];
-                        if (await this.persistMenuLayout(layout) && this.settingsEvents === lifetime && list.isConnected) this.renderMenuGroup(group, list);
-                    });
-                    button.extraSettingsEl.createSpan({ cls: 'wk-nb-sr-only', text: t('settings.menuLayout.reset') });
-                });
-            const list = section.createDiv({ cls: 'wk-nb-menu-settings-list' });
-            this.renderMenuGroup(group, list);
-        });
+        this.renderMenuGroups(containerEl);
 
         new Setting(containerEl)
             .setName(t('settings.hoverDelay.name'))
@@ -110,7 +194,7 @@ export class BlockPluginSettingTab extends PluginSettingTab {
             .setName(t('settings.dateFormat.name'))
             .setDesc(t('settings.dateFormat.desc'))
             .addText(text => text
-                .setPlaceholder('YYYY-MM-DD')
+                .setPlaceholder(DATE_FORMAT_PLACEHOLDER)
                 .setValue(this.plugin.settings.dateFormat)
                 .onChange(async (value) => {
                     this.plugin.settings.dateFormat = value;
@@ -121,7 +205,7 @@ export class BlockPluginSettingTab extends PluginSettingTab {
             .setName(t('settings.timeFormat.name'))
             .setDesc(t('settings.timeFormat.desc'))
             .addText(text => text
-                .setPlaceholder('HH:mm')
+                .setPlaceholder(TIME_FORMAT_PLACEHOLDER)
                 .setValue(this.plugin.settings.timeFormat)
                 .onChange(async (value) => {
                     this.plugin.settings.timeFormat = value;
@@ -130,6 +214,42 @@ export class BlockPluginSettingTab extends PluginSettingTab {
     }
 
     hide(): void {
+        this.clearSettingsLifetime();
+    }
+
+    private renderDeclarativeMenuLayout(setting: Setting): () => void {
+        this.clearSettingsLifetime();
+        const lifetime = this.plugin.addChild(new Component());
+        this.settingsEvents = lifetime;
+        setting.settingEl.addClass('wk-nb-menu-settings-declarative');
+        setting.controlEl.empty();
+        this.renderMenuGroups(setting.controlEl);
+        return () => this.clearSettingsLifetime(lifetime);
+    }
+
+    private renderMenuGroups(containerEl: HTMLElement): void {
+        const lifetime = this.settingsEvents;
+        if (!lifetime) return;
+        (["insert", "transform"] as MenuGroup[]).forEach(group => {
+            const section = containerEl.createEl('details', { cls: 'wk-nb-menu-settings-group' });
+            section.createEl('summary', { text: t(group === 'insert' ? 'menu.addInsert' : 'menu.turnInto') });
+            new Setting(section)
+                .setName(t('settings.menuLayout.position'))
+                .addExtraButton(button => {
+                    button.setIcon('rotate-ccw').onClick(async () => {
+                        const layout = normalizeMenuLayout(this.plugin.settings.menuLayout);
+                        layout[group] = normalizeMenuLayout()[group];
+                        if (await this.persistMenuLayout(layout) && this.settingsEvents === lifetime && list.isConnected) this.renderMenuGroup(group, list);
+                    });
+                    button.extraSettingsEl.createSpan({ cls: 'wk-nb-sr-only', text: t('settings.menuLayout.reset') });
+                });
+            const list = section.createDiv({ cls: 'wk-nb-menu-settings-list' });
+            this.renderMenuGroup(group, list);
+        });
+    }
+
+    private clearSettingsLifetime(expected?: Component): void {
+        if (expected && this.settingsEvents !== expected) return;
         if (this.settingsEvents) this.plugin.removeChild(this.settingsEvents);
         this.settingsEvents = null;
         this.groupEvents = {};

@@ -1,6 +1,6 @@
 {
 	"name": "notion-block",
-	"version": "1.7.0",
+	"version": "1.7.1",
 	"description": "Notion-like block interactions for Live Preview.",
 	"main": "main.js",
 	"scripts": {
