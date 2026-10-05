@@ -77,6 +77,25 @@ function draggedText(doc, lineNo) {
     return text;
 }
 
+for (const [before, target, after] of [
+    ['a ^stable', 'callout-note', '> [!note]\n> a\n\n^stable'],
+    ['> a\n\n^stable', 'callout-note', '> [!note]\n> a\n\n^stable'],
+    ['- a\n- b\n\n^stable', 'numbered', '1. a\n2. b\n\n^stable'],
+    ['```js\nx\n```\n\n^stable', 'paragraph', 'x ^stable'],
+    ['- a ^stable', 'callout-note', '> [!note]\n> - a\n\n^stable'],
+    ['Title\n===\n\n^stable', 'h2', '## Title ^stable'],
+]) test(`generated block anchors survive conversion to ${target}: ${before.split('\n')[0]}`, () => {
+    const view = editor(before); selectWholeBlock(view, 1); transformLine(view, 1, target); assert.equal(view.state.doc.toString(), after);
+});
+
+test('conversion refuses to hide live anchors in comments or combine distinct references', () => {
+    for (const [before, target] of [['Paragraph ^stable', 'comment'], ['Paragraph ^stable', 'divider'],
+        ['- One ^one\n- Two ^two', 'callout-note'], ['- One ^one\n- Two', 'code']]) {
+        const view = editor(before); selectWholeBlock(view, 1); transformLine(view, 1, target);
+        assert.equal(view.state.doc.toString(), before);
+    }
+});
+
 test('三行列表选区整体进入同一 callout，保留列表内容', () => {
     const doc = '- 第一项\n- 第二项\n- 第三项';
     const view = editor(doc, { anchor: 0, head: doc.length });

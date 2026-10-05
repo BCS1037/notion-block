@@ -13,6 +13,7 @@ export interface BlockRange {
 }
 
 export const CALLOUT_HEADER = /^ {0,3}>[ \t]?\[!([^\]]+)\]([+-]?)(?:[ \t]+(.*))?$/;
+export const STANDALONE_BLOCK_ID = /^\^([A-Za-z0-9-]+)[ \t]*$/;
 const QUOTE_PREFIX = /^ {0,3}>[ \t]?/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const DIVIDER = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
@@ -130,6 +131,12 @@ export function getBlockRanges(doc: Text): readonly BlockRange[] {
                 if (!next.trim() || standaloneType(doc, end + 1) !== "paragraph") break;
                 end++;
             }
+        }
+        // An anchor belongs to its preceding block, including the separating blank lines.
+        if (first.trim() && type !== "frontmatter" && type !== "comment" && !STANDALONE_BLOCK_ID.test(first)) {
+            let anchor = end + 1;
+            while (anchor <= doc.lines && !doc.line(anchor).text.trim()) anchor++;
+            if (anchor <= doc.lines && STANDALONE_BLOCK_ID.test(doc.line(anchor).text)) end = anchor;
         }
         blocks.push(range(doc, start, end, type));
         start = end + 1;

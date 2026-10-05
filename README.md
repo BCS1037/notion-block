@@ -37,6 +37,12 @@ Requires the desktop version of Obsidian 1.8.7 or later.
 - Code blocks, tables, and math blocks stay intact. A callout title handle controls the whole callout.
 - Choose **Select whole block** in the block menu or the handle's context menu to select an entire list, quote, or callout before moving or converting it.
 - Drop into a list, quote, or callout to add content at that position; move right or left over a list to nest or outdent.
+- Drag to another open Markdown editing pane in the same window and vault. On release, choose **Move here**, **Copy here**, **Link to original block** (`[[note#^id]]`), or **Embed original block** (`![[note#^id]]`). Escape or clicking outside cancels without changing either note.
+- Links and embeds reuse existing block IDs or add unique IDs. Partial paragraphs, quotes, and callouts are referenced as complete native Obsidian blocks; the drop menu explains this expansion. Multiple blocks retain their order.
+- Move and copy rebase wikilinks and inline Markdown links/images to keep their destinations. Attachments remain in their original locations. Copies receive fresh block IDs, including matching internal block links.
+- Ctrl/Cmd+Z and redo coordinate changes in both notes. Keep both editors open; undo later edits in the other note first. Transfers cancel if either note changes while the drop menu is open.
+- Moving a block with existing inbound block references is disabled; use copy, link, or embed to keep those references valid. Conflicting IDs and unsupported block references are rejected. Blocks with separate ID lines must be placed outside list/quote containers.
+- Two panes showing the same file use ordinary within-note movement. Dragging between separate windows, unopened tabs, or file-tree entries is not supported.
 
 ## Installation
 

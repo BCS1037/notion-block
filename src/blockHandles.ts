@@ -106,7 +106,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
                 if (!this.dragManager) this.dragManager = this.addChild(new DragManager(view, () => {
                     pointerId = null;
                     this.clearDragTimeout();
-                }));
+                }, plugin.transfers));
                 this.dragManager.startDrag(lineNo, event, this.dragButton ?? undefined);
             }, delay);
         });

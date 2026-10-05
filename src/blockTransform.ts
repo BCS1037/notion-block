@@ -6,6 +6,7 @@ import NotionBlock from "./main";
 import { t } from "./locale/helpers";
 import { CALLOUT_HEADER, getBlockRanges } from "./blockRange";
 import { getBlockSource, getDragStructure, getWholeBlockRange, isDragList } from "./blockDrag";
+import { getBlockIds } from "./blockTransfer";
 
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"]);
 
@@ -146,7 +147,28 @@ function transformContent(doc: Text, unwrapFences: boolean): ContentLine[] {
 
 export function transformLine(view: EditorView, lineNo: number, targetType: string): void {
     const selected = getBlockSource(view.state, lineNo);
-    const original = selected.content;
+    let original = selected.content;
+    const anchored = getBlockIds(original);
+    const listTarget = ["bullet", "numbered", "todo", "toggle"].includes(targetType);
+    if (anchored.length && (["comment", "divider"].includes(targetType) || anchored.length > 1 && !listTarget)) {
+        new Notice(t("transfer.anchorTransform")); return;
+    }
+    let anchor: string | null = null;
+    const separate = selected.nodes.length === 1 ? original.match(/\n[ \t\n]*\^([A-Za-z0-9-]+)[ \t]*$/) : null;
+    if (separate) { anchor = separate[1]; original = original.slice(0, separate.index); }
+    else if (selected.nodes.length === 1) {
+        const node = selected.nodes[0];
+        const item = node.item || isDragList(node) && node.children.length === 1;
+        const lines = original.split("\n"), at = item ? 0 : lines.length - 1;
+        if (item || ["paragraph", "heading", "embed"].includes(selected.type)) {
+            const inline = lines[at].match(/[ \t]+\^([A-Za-z0-9-]+)[ \t]*$/);
+            if (inline) { anchor = inline[1]; lines[at] = lines[at].slice(0, inline.index); original = lines.join("\n"); }
+        }
+    }
+    if (anchored.length && !anchor && (targetType.startsWith("callout-")
+        || ["blockquote", "code", "math"].includes(targetType))) {
+        new Notice(t("transfer.anchorTransform")); return;
+    }
     const contentDoc = Text.of(original.split("\n"));
     const block = getBlockRanges(contentDoc).find(block => block.from === 0 && block.to === contentDoc.length);
     if (block?.type === targetType && (targetType === "math" || targetType === "comment"
@@ -216,6 +238,16 @@ export function transformLine(view: EditorView, lineNo: number, targetType: stri
             }
         }
         newText = convertedLines.join("\n");
+    }
+    if (anchor) {
+        const output = Text.of(newText.split("\n")), first = getBlockRanges(output).find(range => output.sliceString(range.from, range.to).trim());
+        if (first) {
+            const item = selected.nodes[0]?.item && listTarget;
+            const simple = item || first.type === "paragraph" || first.type === "heading" && /^ {0,3}#{1,6}[ \t]/.test(output.line(first.startLine).text);
+            const at = item ? output.line(first.startLine).to : output.line(first.endLine).to;
+            const tail = newText.slice(at);
+            newText = newText.slice(0, at) + (simple ? ` ^${anchor}` : `\n\n^${anchor}` + (tail && !tail.startsWith("\n\n") ? "\n" : "")) + tail;
+        }
     }
     newText = newText.split("\n").map(line => selected.prefix + line).join("\n");
     if (newText === selected.text) return;

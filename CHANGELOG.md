@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.0] - 2026-10-05
+
+### Added
+
+- Drag blocks between open Markdown panes in the same window. Choose to move, copy, link to the original block, or embed it.
+- Undo and redo each transfer together in both documents.
+
+### Improved
+
+- Preserve block IDs when moving content and assign fresh IDs when copying. Rebase copied or moved wikilinks and inline Markdown links and images for the destination note.
+- Use Obsidian-native block references for quotes, callouts, lists, code blocks, tables, and math. Partial selections expand to a complete block where Obsidian requires it.
+- Prevent moves that would break existing block references, and explain when a selected block cannot be safely linked.
+
 ## [1.6.0] - 2026-10-04
 
 ### Added
@@ -54,6 +67,7 @@
 - Requires Obsidian **1.8.7** or later.
 - Remains a desktop-only plugin.
 
+[1.7.0]: https://github.com/BCS1037/notion-block/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/BCS1037/notion-block/compare/1.5.1...1.6.0
 [1.5.1]: https://github.com/BCS1037/notion-block/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/BCS1037/notion-block/compare/1.4.0...1.5.0

@@ -89,6 +89,16 @@
     max-height: min(620px, calc(100vh - 16px));
 }
 
+.wk-nb-transfer-menu { width: 300px; overflow-y: auto; }
+.wk-nb-transfer-title { padding: 6px 8px 10px; font-size: var(--font-ui-small); color: var(--text-muted); overflow-wrap: anywhere; }
+.wk-nb-transfer-option { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-height: 36px; padding: 8px; height: auto; border: 0; box-shadow: none; background: transparent; text-align: left; }
+.wk-nb-transfer-option:hover, .wk-nb-transfer-option:focus-visible { background: var(--background-modifier-hover); }
+.wk-nb-transfer-icon { display: flex; flex-shrink: 0; }
+.wk-nb-transfer-icon svg { width: 16px; height: 16px; }
+.wk-nb-transfer-text { display: flex; flex-direction: column; gap: 4px; white-space: normal; }
+.wk-nb-transfer-description, .wk-nb-transfer-hint { font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.wk-nb-transfer-hint { padding: 8px; }
+
 .wk-nb-menu-groups {
     display: flex;
     flex-direction: column;
