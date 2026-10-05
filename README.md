@@ -51,7 +51,7 @@ The block menu places **Turn into** above **Add** in one column. Both groups sta
 
 Block content is inserted below a nonempty line. Inline commands append to the targeted line. Focus returns to the editor after insertion, and edits remain undoable.
 
-Customize which commands appear directly or under **More**, and drag their grips to change their order. Enable **Show separate add button** if you prefer a dedicated `+` insertion button.
+Customize which commands appear directly or under **More**, and drag their grips to change their order.
 
 <img src="assets/screenshots/block-menu.png" width="380" alt="Notion block menu showing Turn into, Add, and block actions in a single column" />
 
@@ -102,8 +102,6 @@ Open **Settings → Notion block** to adjust:
 
 | Setting | What it controls | Default |
 | --- | --- | --- |
-| **Enable plugin** | Enable or disable block interactions | On |
-| **Show separate add button** | Show a `+` button beside `⠿` | Off |
 | **Menu commands** | Command placement under the main menu or **More**, and order within each group | All commands shown directly |
 | **Button hover delay** | Delay before handles appear | 0 ms |
 | **Button hide delay** | Delay before handles disappear | 200 ms |

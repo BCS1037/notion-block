@@ -13,10 +13,6 @@
     opacity: 0;
 }
 
-.block-handle-wrap:not(.has-add-button) .add-button {
-    display: none;
-}
-
 .block-handle-wrap.is-hidden {
     pointer-events: none;
 }
@@ -221,6 +217,7 @@
     border-radius: 8px;
     width: 100%;
     box-sizing: border-box;
+    text-align: left;
 }
 
 .wk-nb-menu-settings-declarative {
@@ -228,9 +225,10 @@
     flex-direction: column;
 }
 
-.wk-nb-menu-settings-declarative .setting-item-control {
+.wk-nb-menu-settings-declarative > .setting-item-control {
     display: block;
     width: 100%;
+    text-align: left;
 }
 
 .wk-nb-menu-settings-group > summary {

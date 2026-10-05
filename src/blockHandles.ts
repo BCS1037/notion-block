@@ -22,7 +22,6 @@ interface HandlePosition {
 
 export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromClass(class extends Component {
     handleEl: HTMLElement | null = null;
-    addButton: HTMLElement | null = null;
     dragButton: HTMLElement | null = null;
     hoveredLine: number | null = null;
     hideTimeout: number | null = null;
@@ -47,7 +46,6 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         // 放在滚动区外，避免标题左移后被 .cm-scroller 的 overflow 裁切。
         this.handleEl = view.dom.createDiv({ cls: "block-handle-wrap is-hidden" });
         this.handleEl.toggleClass("is-mobile", this.isMobileView());
-        this.syncHandleLayout();
         const originalMarginLeft = view.scrollDOM.style.marginLeft;
         this.register(() => view.scrollDOM.setCssStyles({ marginLeft: originalMarginLeft }));
         this.registerDomEvent(view.dom, "mousemove", (event) => this.handleMouseMove(view, event));
@@ -55,12 +53,6 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         this.registerDomEvent(view.scrollDOM, "scroll", () => this.updatePosition(view));
         this.registerDomEvent(view.dom, "pointerdown", (event) => this.handlePointerDown(view, event));
 
-        this.addButton = this.handleEl.createDiv({
-            cls: "block-handle-button add-button",
-            attr: { role: "button", tabindex: "0" }
-        });
-        setIcon(this.addButton, "plus");
-        this.addButton.createSpan({ cls: "wk-nb-sr-only", text: t("handles.addBlock") });
         this.dragButton = this.handleEl.createDiv({
             cls: "block-handle-button drag-button",
             attr: { role: "button", tabindex: "0" }
@@ -80,12 +72,12 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
         let isDragging = false;
         let suppressClick = false;
         let pointerId: number | null = null;
-        const openMenu = (page: "actions" | "insert" = "actions"): void => {
-            const button = page === "insert" ? this.addButton : this.dragButton;
+        const openMenu = (): void => {
+            const button = this.dragButton;
             if (this.hoveredLine === null || !button) return;
             this.clearHideTimeout();
             const rect = button.getBoundingClientRect();
-            showNotionBlockActionMenu(plugin, view, this.hoveredLine, { x: rect.left, y: rect.bottom }, page);
+            showNotionBlockActionMenu(plugin, view, this.hoveredLine, { x: rect.left, y: rect.bottom });
         };
 
         this.registerDomEvent(this.dragButton, "pointerdown", (event) => {
@@ -159,39 +151,20 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             menu.showAtMouseEvent(event);
             event.preventDefault();
         });
-        this.registerDomEvent(this.addButton, "click", (event) => {
-            event.stopPropagation();
-            openMenu("insert");
-        });
-        this.registerDomEvent(this.addButton, "keydown", (event) => {
-            if (event.key !== "Enter" && event.key !== " ") return;
-            event.preventDefault();
-            event.stopPropagation();
-            openMenu("insert");
-        });
     }
 
     update(update: ViewUpdate): void {
-        const layoutChanged = this.syncHandleLayout();
         if (update.selectionSet && this.isMobileView() && this.hoveredLine !== null) {
             this.revealHandleAtSelection(update.view);
             return;
         }
-        if ((layoutChanged || update.docChanged || update.geometryChanged || update.selectionSet) && this.hoveredLine !== null) {
+        if ((update.docChanged || update.geometryChanged || update.selectionSet) && this.hoveredLine !== null) {
             this.updatePosition(update.view);
         }
     }
 
-    syncHandleLayout(): boolean {
-        if (!this.handleEl) return false;
-        const changed = this.handleEl.hasClass("has-add-button") !== plugin.settings.showAddButton;
-        this.handleEl.toggleClass("has-add-button", plugin.settings.showAddButton);
-        return changed;
-    }
-
     updatePosition(view: EditorView): void {
         if (this.hoveredLine === null || !this.handleEl) return;
-        this.syncHandleLayout();
         // CodeMirror 更新期间不能读布局；合并到宿主的测量阶段。
         view.requestMeasure({
             key: this,
@@ -231,7 +204,7 @@ export const blockHandlesExtension = (plugin: NotionBlock) => ViewPlugin.fromCla
             const lineHeight = Math.min(view.defaultLineHeight, coords.bottom - coords.top);
             const handleHeight = this.handleEl.offsetHeight || 24;
             const mobile = this.handleEl.hasClass("is-mobile") || this.isMobileView();
-            const fallbackWidth = plugin.settings.showAddButton ? (mobile ? 74 : 44) : (mobile ? 34 : 20);
+            const fallbackWidth = mobile ? 34 : 20;
             const width = this.handleEl.offsetWidth || fallbackWidth;
             const foldRect = this.getHeadingFoldRect(view, line.from);
             const left = this.getHandleLeft(view, width, editorRect, foldRect);

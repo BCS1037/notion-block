@@ -28,8 +28,8 @@ export default class NotionBlock extends Plugin {
     async loadSettings() {
         const data: unknown = await this.loadData();
         const saved = typeof data === 'object' && data !== null ? data as Record<string, unknown> : {};
-        // 忽略旧模式，加载时不改写用户存储的设置。
-        const { dragGranularity: _retiredMode, ...current } = saved;
+        // 忽略已移除的设置，加载时不改写用户存储的数据。
+        const { dragGranularity: _retiredMode, enabled: _retiredEnabled, showAddButton: _retiredAddButton, ...current } = saved;
         this.settings = Object.assign({}, DEFAULT_SETTINGS, current);
         this.settings.menuLayout = normalizeMenuLayout(saved.menuLayout);
         this.savedMenuLayout = normalizeMenuLayout(this.settings.menuLayout);

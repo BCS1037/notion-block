@@ -1,10 +1,6 @@
 import { LocaleType } from "./en";
 
 const zh: LocaleType = {
-    "settings.enablePlugin.name": "启用插件",
-    "settings.enablePlugin.desc": "启用或禁用区块插件。",
-    "settings.showAddButton.name": "显示独立添加按钮",
-    "settings.showAddButton.desc": "在块手柄旁显示 + 按钮。块菜单中始终提供新增入口。",
     "settings.menuLayout.name": "菜单命令",
     "settings.menuLayout.desc": "选择命令在主菜单展开，或收进「更多」。可在这里或弹出菜单中拖动手柄，调整各组内的顺序。修改自动保存。",
     "settings.menuLayout.position": "命令显示位置与顺序",
@@ -20,7 +16,6 @@ const zh: LocaleType = {
     "settings.timeFormat.name": "时间格式",
     "settings.timeFormat.desc": "当前时间的格式。",
     
-    "handles.addBlock": "在下方添加区块",
     "handles.dragReorder": "拖拽以重排",
     "handles.blockActions": "点击打开块菜单，按住拖拽",
     "drag.list": "加入列表同级项",

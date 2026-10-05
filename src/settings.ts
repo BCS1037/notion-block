@@ -9,8 +9,6 @@ const DATE_FORMAT_PLACEHOLDER = 'YYYY-MM-DD';
 const TIME_FORMAT_PLACEHOLDER = 'HH:mm';
 
 export interface BlockPluginSettings {
-    enabled: boolean;
-    showAddButton: boolean;
     hoverDelay: number;
     hideDelay: number;
     dateFormat: string;
@@ -19,8 +17,6 @@ export interface BlockPluginSettings {
 }
 
 export const DEFAULT_SETTINGS: BlockPluginSettings = {
-    enabled: true,
-    showAddButton: false,
     hoverDelay: 0,
     hideDelay: 200,
     dateFormat: 'YYYY-MM-DD',
@@ -29,7 +25,6 @@ export const DEFAULT_SETTINGS: BlockPluginSettings = {
 };
 
 type DeclarativeControl =
-    | { type: 'toggle'; key: 'enabled' | 'showAddButton'; defaultValue: boolean }
     | { type: 'slider'; key: 'hoverDelay' | 'hideDelay'; defaultValue: number; min: number; max: number; step: number }
     | { type: 'text'; key: 'dateFormat' | 'timeFormat'; defaultValue: string; placeholder: string };
 
@@ -57,16 +52,6 @@ export class BlockPluginSettingTab extends PluginSettingTab {
             ...Object.values(MENU_COMMANDS).flatMap(commands => commands.map(command => t(command.labelKey))),
         ];
         return [
-            {
-                name: t('settings.enablePlugin.name'),
-                desc: t('settings.enablePlugin.desc'),
-                control: { type: 'toggle', key: 'enabled', defaultValue: DEFAULT_SETTINGS.enabled },
-            },
-            {
-                name: t('settings.showAddButton.name'),
-                desc: t('settings.showAddButton.desc'),
-                control: { type: 'toggle', key: 'showAddButton', defaultValue: DEFAULT_SETTINGS.showAddButton },
-            },
             {
                 name: t('settings.menuLayout.name'),
                 desc: t('settings.menuLayout.desc'),
@@ -98,8 +83,6 @@ export class BlockPluginSettingTab extends PluginSettingTab {
 
     getControlValue(key: string): unknown {
         switch (key) {
-            case 'enabled': return this.plugin.settings.enabled;
-            case 'showAddButton': return this.plugin.settings.showAddButton;
             case 'hoverDelay': return this.plugin.settings.hoverDelay;
             case 'hideDelay': return this.plugin.settings.hideDelay;
             case 'dateFormat': return this.plugin.settings.dateFormat;
@@ -110,11 +93,6 @@ export class BlockPluginSettingTab extends PluginSettingTab {
 
     async setControlValue(key: string, value: unknown): Promise<void> {
         switch (key) {
-            case 'enabled':
-            case 'showAddButton':
-                if (typeof value !== 'boolean') return;
-                this.plugin.settings[key] = value;
-                break;
             case 'hoverDelay':
                 if (typeof value !== 'number' || !Number.isFinite(value)) return;
                 this.plugin.settings.hoverDelay = Math.min(500, Math.max(0, Math.round(value / 50) * 50));
@@ -140,26 +118,6 @@ export class BlockPluginSettingTab extends PluginSettingTab {
         this.hide();
         containerEl.empty();
         this.settingsEvents = this.plugin.addChild(new Component());
-
-        new Setting(containerEl)
-            .setName(t('settings.enablePlugin.name'))
-            .setDesc(t('settings.enablePlugin.desc'))
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.enabled)
-                .onChange(async (value) => {
-                    this.plugin.settings.enabled = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
-            .setName(t('settings.showAddButton.name'))
-            .setDesc(t('settings.showAddButton.desc'))
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.showAddButton)
-                .onChange(async (value) => {
-                    this.plugin.settings.showAddButton = value;
-                    await this.plugin.saveSettings();
-                }));
 
         new Setting(containerEl)
             .setName(t('settings.menuLayout.name'))

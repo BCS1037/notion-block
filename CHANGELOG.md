@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.2] - 2026-10-05
+
+### Fixed
+
+- Restore drag-to-reorder commands in the block popup and plugin settings, including pop-out settings windows. Orders save when the drag finishes.
+- Left-align menu group headings and command names in plugin settings.
+
+### Changed
+
+- Remove the redundant **Enable plugin** setting. Use Obsidian's community plugin manager to enable or disable the plugin.
+- Remove the separate **+** button and its setting. **Add** commands remain available in the unified block menu.
+
 ## [1.7.1] - 2026-10-05
 
 ### Improved
@@ -73,6 +85,7 @@
 - Requires Obsidian **1.8.7** or later.
 - Remains a desktop-only plugin.
 
+[1.7.2]: https://github.com/BCS1037/notion-block/compare/1.7.1...1.7.2
 [1.7.1]: https://github.com/BCS1037/notion-block/compare/1.7.0...1.7.1
 [1.7.0]: https://github.com/BCS1037/notion-block/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/BCS1037/notion-block/compare/1.5.1...1.6.0
